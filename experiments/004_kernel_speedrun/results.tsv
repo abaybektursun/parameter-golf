@@ -18,3 +18,4 @@ b1a3aed	704.46	0.0	-	-	keep	enable torch._inductor.config max_autotune + max_aut
 cf5dd11	0.0	0.0	-	-	crash	in-place logit softcap on logits_proj breaks autograd under torch.compile
 3c18e4c	706.39	0.0	-	-	discard	Muon zeropower Newton-Schulz internal compute in fp16 instead of bf16
 d3acedc	704.98	0.0	-	-	discard	cache Rotary cos/sin in active compute dtype to avoid per-call dtype casts
+2c2a68c	716.75	0.0	-	-	discard	force inductor max_autotune_gemm_backends=ATEN
