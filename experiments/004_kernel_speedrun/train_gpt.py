@@ -673,7 +673,7 @@ class CastedLinear(nn.Linear):
     _qat_enabled: bool = False
 
     def forward(self, x: Tensor) -> Tensor:
-        w = self.weight.to(x.dtype)
+        w = self.weight if self.weight.dtype == x.dtype else self.weight.to(x.dtype)
         if CastedLinear._qat_enabled and self.training and w.ndim == 2:
             with torch.no_grad():
                 w32 = self.weight.float()
@@ -681,7 +681,10 @@ class CastedLinear(nn.Linear):
                 scale = (row_max / 31.0).clamp_min(1.0 / 31.0)
                 w_q = (torch.clamp(torch.round(w32 / scale[:, None]), -32, 31) * scale[:, None]).to(x.dtype)
             w = w + (w_q - w).detach()
-        bias = self.bias.to(x.dtype) if self.bias is not None else None
+        if self.bias is None:
+            bias = None
+        else:
+            bias = self.bias if self.bias.dtype == x.dtype else self.bias.to(x.dtype)
         return F.linear(x, w, bias)
 
 
