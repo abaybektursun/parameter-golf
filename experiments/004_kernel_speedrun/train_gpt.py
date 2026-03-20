@@ -23,6 +23,7 @@ import sentencepiece as spm
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+import torch._inductor.config as inductor_config
 from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -1184,6 +1185,8 @@ def main() -> None:
 
     code = Path(__file__).read_text(encoding="utf-8")
     args = Hyperparameters()
+    inductor_config.max_autotune = True
+    inductor_config.max_autotune_gemm = True
     zeropower_via_newtonschulz5 = torch.compile(zeropower_via_newtonschulz5)
 
     # -----------------------------
