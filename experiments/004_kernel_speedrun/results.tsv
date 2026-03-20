@@ -17,3 +17,4 @@ ce6ec10-local	3380.02	0.0	-	-	discard	port modded-nanogpt-style Triton linear+Re
 7b6cbde-local	0.00	0.0	-	-	crash	make Rotary stateless and retry torch.compile(mode=reduce-overhead); old RoPE-cache crash moved to overwritten saved MLP activation in ReLUSquaredMLPFunction.backward before warmup
 7b6cbde-marked	0.00	0.0	-	-	crash	add cudagraph_mark_step_begin on top of stateless Rotary + reduce-overhead; still hit the same overwritten saved-MLP-activation error before warmup
 ae1c40a-local	0.00	0.0	-	-	discard	enable torch.compile(mode=max-autotune-no-cudagraphs); did not reach warmup_step:1/20 after ~1m49s on a 30s smoke benchmark
+238adfc	1466.07	0.0	-	-	discard	force cuDNN SDP backend; isolated attention forward got faster, but full training regressed badly to 1466.07ms at step 80
