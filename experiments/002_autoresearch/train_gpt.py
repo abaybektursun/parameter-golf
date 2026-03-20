@@ -7,22 +7,16 @@ from __future__ import annotations
 
 import copy
 import glob
-import io
 import math
 import os
 import random
+import struct
 import subprocess
 import sys
 import time
 import uuid
 import zlib
 from pathlib import Path
-
-try:
-    import zstandard
-    _COMPRESSOR = "zstd"
-except ImportError:
-    _COMPRESSOR = "zlib"
 
 import numpy as np
 import sentencepiece as spm
@@ -443,6 +437,151 @@ def dequantize_state_dict_int8(obj: dict[str, object]) -> dict[str, Tensor]:
             out_t = out_t.to(dtype=getattr(torch, orig_dtype)).contiguous()
         out[name] = out_t
     return out
+
+
+# -----------------------------
+# CUSTOM BINARY SERIALIZATION
+# -----------------------------
+#
+# Replaces torch.save (pickle + ZIP) with a minimal binary format and zlib payload.
+# This is adapted from experiments/003_custom_serialization/ for the mixed int6/int8
+# export object used by this PR #198-derived training script.
+
+_DTYPE_TO_CODE = {torch.int8: 0, torch.float16: 1, torch.float32: 2, torch.bfloat16: 3}
+_CODE_TO_DTYPE = {v: k for k, v in _DTYPE_TO_CODE.items()}
+_DTYPE_SIZES = {torch.int8: 1, torch.float16: 2, torch.float32: 4, torch.bfloat16: 2}
+_SERIAL_MAGIC = b"PG02"
+
+
+def _split_mixed_quant_obj(
+    quant_obj: dict[str, object],
+) -> tuple[dict[str, Tensor], dict[str, Tensor], dict[str, Tensor], dict[str, str], dict[str, str]]:
+    result = quant_obj["w"]
+    meta = quant_obj["m"]
+    quantized: dict[str, Tensor] = {}
+    scales: dict[str, Tensor] = {}
+    passthrough: dict[str, Tensor] = {}
+    dtypes: dict[str, str] = {}
+    kinds: dict[str, str] = {}
+
+    for name, info in meta.items():
+        if isinstance(info, str):
+            passthrough[name] = result[name]
+            kinds[name] = info
+            continue
+        quantized[name] = result[name + ".q"]
+        scales[name] = result[name + ".scale"]
+        dtypes[name] = info["type"]
+    return quantized, scales, passthrough, dtypes, kinds
+
+
+def serialize_quant_obj(quant_obj: dict[str, object], stats: dict | None = None) -> bytes:
+    """Serialize quantized model to minimal binary format, then zlib compress."""
+    del stats
+    quantized, scales, passthrough, dtypes, kinds = _split_mixed_quant_obj(quant_obj)
+    parts: list[bytes] = []
+    entries: list[tuple[str, Tensor]] = []
+
+    for name, q in quantized.items():
+        entries.append((f"q:{name}", q))
+        entries.append((f"s:{name}", scales[name]))
+    for name, t in passthrough.items():
+        entries.append((f"p:{name}", t))
+
+    meta_parts: list[str] = []
+    for name, dtype_str in dtypes.items():
+        meta_parts.append(f"D|{name}|{dtype_str}")
+    for name, kind in kinds.items():
+        meta_parts.append(f"K|{name}|{kind}")
+    meta_str = "\n".join(meta_parts).encode("utf-8")
+
+    parts.append(_SERIAL_MAGIC)
+    parts.append(struct.pack("<HI", len(entries), len(meta_str)))
+    parts.append(meta_str)
+
+    for name, tensor in entries:
+        t = tensor.detach().contiguous()
+        name_bytes = name.encode("utf-8")
+        dtype_code = _DTYPE_TO_CODE[t.dtype]
+        data = t.numpy().tobytes()
+        parts.append(struct.pack("<B", len(name_bytes)))
+        parts.append(name_bytes)
+        parts.append(struct.pack("<B", t.ndim))
+        for dim in t.shape:
+            parts.append(struct.pack("<I", dim))
+        parts.append(struct.pack("<B", dtype_code))
+        parts.append(data)
+
+    raw = b"".join(parts)
+    return zlib.compress(raw, level=9)
+
+
+def deserialize_quant_obj(blob: bytes) -> dict[str, object]:
+    """Deserialize the custom binary format back to mixed int6/int8 export objects."""
+    raw = zlib.decompress(blob)
+    offset = 0
+
+    magic = raw[offset : offset + 4]
+    offset += 4
+    assert magic == _SERIAL_MAGIC, f"Bad magic: {magic}"
+    num_entries, meta_len = struct.unpack_from("<HI", raw, offset)
+    offset += 6
+    meta_str = raw[offset : offset + meta_len].decode("utf-8")
+    offset += meta_len
+
+    dtypes: dict[str, str] = {}
+    kinds: dict[str, str] = {}
+    for line in meta_str.split("\n"):
+        if not line:
+            continue
+        parts = line.split("|")
+        if parts[0] == "D":
+            dtypes[parts[1]] = parts[2]
+        elif parts[0] == "K":
+            kinds[parts[1]] = parts[2]
+
+    quantized: dict[str, Tensor] = {}
+    scales: dict[str, Tensor] = {}
+    passthrough: dict[str, Tensor] = {}
+    for _ in range(num_entries):
+        name_len = struct.unpack_from("<B", raw, offset)[0]
+        offset += 1
+        name = raw[offset : offset + name_len].decode("utf-8")
+        offset += name_len
+        ndim = struct.unpack_from("<B", raw, offset)[0]
+        offset += 1
+        shape = []
+        for _ in range(ndim):
+            shape.append(struct.unpack_from("<I", raw, offset)[0])
+            offset += 4
+        dtype_code = struct.unpack_from("<B", raw, offset)[0]
+        offset += 1
+        dtype = _CODE_TO_DTYPE[dtype_code]
+        numel = 1
+        for dim in shape:
+            numel *= dim
+        nbytes = numel * _DTYPE_SIZES[dtype]
+        data = raw[offset : offset + nbytes]
+        offset += nbytes
+        tensor = torch.frombuffer(bytearray(data), dtype=dtype).reshape(shape).contiguous()
+
+        if name.startswith("q:"):
+            quantized[name[2:]] = tensor
+        elif name.startswith("s:"):
+            scales[name[2:]] = tensor
+        elif name.startswith("p:"):
+            passthrough[name[2:]] = tensor
+
+    result: dict[str, Tensor] = {}
+    meta: dict[str, object] = {}
+    for name, q in quantized.items():
+        result[name + ".q"] = q
+        result[name + ".scale"] = scales[name]
+        meta[name] = {"type": dtypes[name]}
+    for name, t in passthrough.items():
+        result[name] = t
+        meta[name] = kinds[name]
+    return {"w": result, "m": meta}
 
 
 # -----------------------------
@@ -1433,27 +1572,21 @@ def main() -> None:
 
     sd_cpu = {k: v.detach().cpu() for k, v in export_sd.items()}
     quant_result, quant_meta = mixed_quantize_int6(sd_cpu, {"mlp", "attn"})
-    quant_buf = io.BytesIO()
-    torch.save({"w": quant_result, "m": quant_meta}, quant_buf)
-    quant_raw = quant_buf.getvalue()
-    quant_blob = zstandard.ZstdCompressor(level=22).compress(quant_raw) if _COMPRESSOR == "zstd" else zlib.compress(quant_raw, 9)
+    quant_blob = serialize_quant_obj({"w": quant_result, "m": quant_meta})
     if master_process:
         with open("final_model.int6.ptz", "wb") as f:
             f.write(quant_blob)
         quant_file_bytes = len(quant_blob)
         code_bytes = len(code.encode("utf-8"))
-        log0(f"Serialized model int6+{_COMPRESSOR}: {quant_file_bytes} bytes")
-        log0(f"Total submission size int6+{_COMPRESSOR}: {quant_file_bytes + code_bytes} bytes")
+        log0(f"Serialized model int6+zlib: {quant_file_bytes} bytes")
+        log0(f"Total submission size int6+zlib: {quant_file_bytes + code_bytes} bytes")
 
     # Roundtrip: decompress + dequantize into fresh model + eval
     if distributed:
         dist.barrier()
     with open("final_model.int6.ptz", "rb") as f:
         quant_blob_disk = f.read()
-    quant_state = torch.load(
-        io.BytesIO(zstandard.ZstdDecompressor().decompress(quant_blob_disk) if _COMPRESSOR == "zstd" else zlib.decompress(quant_blob_disk)),
-        map_location="cpu",
-    )
+    quant_state = deserialize_quant_obj(quant_blob_disk)
     deq_state = dequantize_mixed_int6(quant_state["w"], quant_state["m"], sd_cpu)
 
     eval_model = GPT(
