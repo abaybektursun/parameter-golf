@@ -9,3 +9,4 @@ a45f3d9	1401.86	0.0	-	-	keep	keep low-dim control tensors in bf16 by removing re
 809d559	1384.75	0.0	-	-	discard	recompute softcapped cross-entropy backward; faster than old baseline but 5.40ms slower than the MLP-recompute path at step 80
 0dcc95d	1379.69	0.0	-	-	discard	use scaled_dot_product_attention(enable_gqa=True) instead of manual K/V repeat_interleave; essentially tied but 0.34ms slower than the MLP-only path at step 80
 59118ec	1381.26	0.0	-	-	discard	add Muon single-rank fast path; preserves 1xA100 math but still 1.91ms slower than the MLP-recompute path at the step-87 wallclock cap
+c478c6c	0.00	0.0	-	-	crash	enable torch.compile(mode=reduce-overhead); crashed before warmup with CUDA-graphs overwritten-output error on Rotary cache tensors
