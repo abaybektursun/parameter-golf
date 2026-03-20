@@ -4,3 +4,4 @@ f244388	726.37	0.0	-	-	keep	baseline speed benchmark on 1xA100 (ITERATIONS=150, 
 b68ddf6	0.0	0.0	-	-	crash	enable torch.compile mode=reduce-overhead (CUDA graphs overwrite error in Rotary cache)
 91d4e5f	0.0	0.0	-	-	crash	mode=reduce-overhead + cudagraph_mark_step_begin still crashes on Rotary cache overwrite
 ed7c1a2	724.71	0.0	-	-	keep	MLP relu2 path: inplace ReLU + explicit mul (h*h) instead of relu()+square()
+2d73383	725.15	0.0	-	-	discard	remove logits.float() before cross_entropy (bf16 loss path)
