@@ -55,6 +55,12 @@ All previous experiments in `results.tsv` (up to ~98 runs) were conducted on a *
 - **Hyperparameter tuning from A100 runs is directionally useful** (relative rankings mostly hold), but absolute values like `WARMDOWN_ITERS=220` were tuned for ~1,100 steps and might need retuning for ~10,000+ steps.
 - The SOTA target is **1.206 val_bpb**. This is now reachable.
 
+**IMPORTANT — Artifact size is tight**:
+The current best model artifact is **~15.86 MB** out of the **16 MB (16,777,216 bytes)** limit — only **~0.87 MB headroom**. More training steps (8xH100) produce weights that are harder to compress, so the artifact grew from ~14.6 MB (A100) to ~15.86 MB. Be very careful with changes that increase model size (more params, wider layers). Any change that pushes the artifact over 16 MB will be auto-discarded.
+
+**IMPORTANT — Use custom serialization from experiment 003**:
+`experiments/003_custom_serialization/` contains an improved serialization method that saves ~500 KB on artifact size. You should adopt this serialization into your working copy (`experiments/002_autoresearch/train_gpt.py`) to gain headroom. Read `experiments/003_custom_serialization/notes.md` and its `train_gpt.py` for details. This is a free win — it doesn't change training, only how the model is saved.
+
 **Note**: The leaderboard target is 8xH100s. You now have the full leaderboard hardware.
 
 **What you CAN do:**
@@ -138,10 +144,16 @@ LOOP FOREVER:
    - Vocab size changes
    - Any creative ideas that might compress better or train more efficiently
 6. Edit `experiments/002_autoresearch/train_gpt.py` with the experimental idea.
-4. git commit the change.
-5. Run the experiment: `torchrun --standalone --nproc_per_node=$NUM_GPUS experiments/002_autoresearch/train_gpt.py > run.log 2>&1`
-6. Extract results: `grep "final_int8_zlib_roundtrip_exact\|Total submission size int8+zlib" run.log`
-7. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the stack trace and attempt a fix.
+4. git commit the change. Note the short commit hash — this is the **run ID**.
+5. Run the experiment, saving the log with the commit hash as filename:
+   ```bash
+   COMMIT=$(git rev-parse --short HEAD)
+   mkdir -p experiments/002_autoresearch/logs
+   torchrun --standalone --nproc_per_node=$NUM_GPUS experiments/002_autoresearch/train_gpt.py > experiments/002_autoresearch/logs/${COMMIT}.log 2>&1
+   ```
+6. Extract results: `grep "final_int8_zlib_roundtrip_exact\|Total submission size int8+zlib" experiments/002_autoresearch/logs/${COMMIT}.log`
+7. If the grep output is empty, the run crashed. Run `tail -n 50 experiments/002_autoresearch/logs/${COMMIT}.log` to read the stack trace and attempt a fix.
+   **IMPORTANT**: Never overwrite or delete run logs. Each `logs/<commit>.log` is a permanent record.
 8. Record the results in the TSV (do not commit results.tsv, leave it untracked by git)
 9. **Check artifact size**: If `final_model.int8.ptz` + code > 16MB (16,777,216 bytes), treat as a failure — discard.
 10. If post-quant val_bpb improved AND artifact is under 16MB, keep the commit and advance the branch.
