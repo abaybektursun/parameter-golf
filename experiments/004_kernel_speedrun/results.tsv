@@ -11,3 +11,4 @@ a5f8656	0.0	0.0	-	-	crash	stateless Rotary + mode=reduce-overhead still crashes 
 0a0aa29	0.0	0.0	-	-	crash	torch.compile mode=max-autotune-no-cudagraphs hangs before first warmup step on 1xA100
 af055ab	720.61	0.0	-	-	keep	CastedLinear: skip no-op weight/bias dtype casts when params already match activation dtype
 45d5a22	717.55	0.0	-	-	keep	keep low-dim/control parameters in bf16 (skip restore_low_dim_params_to_fp32)
+b1a3aed	704.46	0.0	-	-	keep	enable torch._inductor.config max_autotune + max_autotune_gemm
