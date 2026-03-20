@@ -22,3 +22,4 @@
 - 2026-03-20: Commit `3c18e4c` changed Muon zeropower's internal compute tensor from bf16 to fp16 (`X = G.half()`). This regressed speed to `706.39ms/step` from the `704.46ms/step` best, so it was discarded.
 - 2026-03-20: Commit `d3acedc` cached RoPE `cos/sin` tables directly in the active compute dtype to avoid per-call `.to(dtype)` casts. Result was slightly slower (`704.98ms/step`) than the `704.46ms/step` best, so discarded.
 - 2026-03-20: Commit `2c2a68c` forced `max_autotune_gemm_backends=\"ATEN\"` (cuBLAS-only choices). This heavily regressed throughput to `716.75ms/step`; mixed backends are essential here.
+- 2026-03-20: Commit `a5a5022` set `max_autotune_gemm_backends=\"TRITON,ATEN\"`. Despite strong early-step averages (~702ms), full-run average regressed to `706.81ms/step`; discarded. Early-step numbers alone are not reliable enough with this backend mix.
