@@ -10,13 +10,14 @@ This is NOT about hyperparameter tuning. This is about making the same computati
 
 ## Starting point
 
-Your working copy (`train_gpt.py`) is the **current best model from the 8xH100 autoresearch run**:
-- 9 layers, 512 dim, 8 heads, 2 KV heads (GQA), MLP 2x
+Your working copy (`train_gpt.py`) is the **current best model from the 8xH100 autoresearch run** (post-quant val_bpb=1.1806, beating SOTA):
+- 11 layers, 512 dim, 8 heads, 4 KV heads (GQA), MLP 3x (hidden=1536)
 - seq_len=2048, tied embeddings, vocab=1024
-- matrix_lr=0.05, tied_embed_lr=0.03784, qk_gain_init=1.7, warmdown=100
+- batch_tokens=786432, warmdown=3000, iterations=9000
+- Int6 per-row quantization + custom binary serialization
 - Baseline step time on 8xH100: ~52ms/step, ~27% MFU
 
-**Do NOT change the model architecture or hyperparameters.** Only optimize how fast the same computation executes.
+**Do NOT change the model architecture or hyperparameters.** Only optimize how fast the same computation executes. The 3x MLP (1536 hidden) makes fused ReLU² especially impactful. 11 layers means attention kernel optimizations compound more.
 
 ## Setup
 
