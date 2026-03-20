@@ -15,3 +15,4 @@ b1a3aed	704.46	0.0	-	-	keep	enable torch._inductor.config max_autotune + max_aut
 1ef227f	0.0	0.0	-	-	crash	set max_autotune_gemm_search_space=EXHAUSTIVE (autotune compile timeout before warmup)
 8050d6f	709.77	0.0	-	-	discard	enable torch._inductor.config max_autotune_pointwise
 9c11f3b	0.0	0.0	-	-	crash	enable torch._inductor.config coordinate_descent_tuning (hang before warmup)
+cf5dd11	0.0	0.0	-	-	crash	in-place logit softcap on logits_proj breaks autograd under torch.compile
