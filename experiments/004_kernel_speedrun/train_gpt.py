@@ -614,12 +614,12 @@ class TokenStream:
         if not self.files:
             raise FileNotFoundError(f"No files found for pattern: {pattern}")
         self.file_idx = 0
-        self.tokens = load_data_shard(self.files[0])
+        self.tokens = load_data_shard(self.files[0]).pin_memory()
         self.pos = 0
 
     def _advance_file(self) -> None:
         self.file_idx = (self.file_idx + 1) % len(self.files)
-        self.tokens = load_data_shard(self.files[self.file_idx])
+        self.tokens = load_data_shard(self.files[self.file_idx]).pin_memory()
         self.pos = 0
 
     def take(self, n: int) -> Tensor:
@@ -651,10 +651,10 @@ class DistributedTokenLoader:
         per_rank_span = local_tokens + 1
         chunk = self.stream.take(per_rank_span * self.world_size)
         start = self.rank * per_rank_span
-        local = chunk[start : start + per_rank_span].to(dtype=torch.int64)
+        local = chunk[start : start + per_rank_span].to(self.device, dtype=torch.int32, non_blocking=True)
         x = local[:-1].reshape(-1, seq_len)
         y = local[1:].reshape(-1, seq_len)
-        return x.to(self.device, non_blocking=True), y.to(self.device, non_blocking=True)
+        return x, y
 
 # -----------------------------
 # TRANSFORMER MODULES
@@ -1006,7 +1006,7 @@ class GPT(nn.Module):
 
         x = self.final_norm(x)
         x_flat = x.reshape(-1, x.size(-1))
-        targets = target_ids.reshape(-1)
+        targets = target_ids.reshape(-1).to(dtype=torch.int64)
         if self.tie_embeddings:
             logits_proj = F.linear(x_flat, self.tok_emb.weight)
         else:
@@ -1025,7 +1025,7 @@ class GPT(nn.Module):
                 if valid_t <= 0:
                     continue
                 mtp_hidden = x[:, :valid_t, :].reshape(-1, dim)
-                mtp_targets = target_ids[:, k + 1 :].reshape(-1)
+                mtp_targets = target_ids[:, k + 1 :].reshape(-1).to(dtype=torch.int64)
                 mtp_logits_proj = mtp_head(mtp_hidden)
                 mtp_logits = self.logit_softcap * torch.tanh(mtp_logits_proj / self.logit_softcap)
                 mtp_loss_sum = mtp_loss_sum + F.cross_entropy(mtp_logits.float(), mtp_targets, reduction="mean")
