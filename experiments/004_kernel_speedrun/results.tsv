@@ -21,3 +21,4 @@ ae1c40a-local	0.00	0.0	-	-	discard	enable torch.compile(mode=max-autotune-no-cud
 7226756	1377.95	0.0	1.6900	5640335	keep	pin training shards and stage one local token span to GPU as int32, then widen targets to int64 only at the loss; rerun confirmed 1377.95ms at step 80
 9df7caa	0.00	0.0	-	-	crash	batch same-shaped Muon matrix updates; Inductor crashed compiling the batched Newton-Schulz path with launcher() got multiple values for argument stream
 2d5b0d7	1351.91	0.0	1.6734	5679738	keep	batch same-shaped Muon matrix updates and compile the 3D Newton-Schulz helper without autotune; 1351.91ms at step 80 and 1.6734 val_bpb on the 600s keep-path run
+0424b78	1353.49	0.0	-	-	discard	add Muon single-rank direct-apply fast path on top of batched Muon; exact on 1 rank but 1.58ms slower than 2d5b0d7 at step 80
