@@ -16,6 +16,7 @@ import sys
 import time
 import uuid
 import zlib
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -112,16 +113,27 @@ class Hyperparameters:
 
 def zeropower_via_newtonschulz5(G: Tensor, steps: int = 10, eps: float = 1e-7) -> Tensor:
     a, b, c = (3.4445, -4.7750, 2.0315)
+    if G.ndim == 2:
+        X = G.bfloat16()
+        X /= X.norm() + eps
+        transposed = G.size(0) > G.size(1)
+        if transposed:
+            X = X.T
+        for _ in range(steps):
+            A = X @ X.T
+            B = b * A + c * A @ A
+            X = a * X + B @ X
+        return X.T if transposed else X
     X = G.bfloat16()
-    X /= X.norm() + eps
-    transposed = G.size(0) > G.size(1)
+    X /= X.norm(dim=(-2, -1), keepdim=True) + eps
+    transposed = G.size(-2) > G.size(-1)
     if transposed:
-        X = X.T
+        X = X.transpose(-2, -1)
     for _ in range(steps):
-        A = X @ X.T
-        B = b * A + c * A @ A
-        X = a * X + B @ X
-    return X.T if transposed else X
+        A = X @ X.transpose(-2, -1)
+        B = b * A + c * (A @ A)
+        X = a * X + (B @ X)
+    return X.transpose(-2, -1) if transposed else X
 
 
 class Muon(torch.optim.Optimizer):
@@ -132,6 +144,25 @@ class Muon(torch.optim.Optimizer):
             dict(lr=lr, momentum=momentum, backend_steps=backend_steps,
                  nesterov=nesterov, weight_decay=weight_decay),
         )
+        self._shape_buckets: list[tuple[list[int], list[list[tuple[int, Tensor]]], int]] = []
+        self._rebuild_shape_buckets()
+
+    def _rebuild_shape_buckets(self) -> None:
+        self._shape_buckets = []
+        for group in self.param_groups:
+            offsets: list[int] = []
+            shape_buckets: dict[tuple[tuple[int, ...], torch.dtype, torch.device], list[tuple[int, Tensor]]] = defaultdict(list)
+            total_params = 0
+            for idx, p in enumerate(group["params"]):
+                offsets.append(total_params)
+                shape_buckets[(tuple(p.shape), p.dtype, p.device)].append((idx, p))
+                total_params += p.numel()
+            self._shape_buckets.append((offsets, list(shape_buckets.values()), total_params))
+
+    def load_state_dict(self, state_dict):
+        out = super().load_state_dict(state_dict)
+        self._rebuild_shape_buckets()
+        return out
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -144,7 +175,7 @@ class Muon(torch.optim.Optimizer):
         world_size = dist.get_world_size() if distributed else 1
         rank = dist.get_rank() if distributed else 0
 
-        for group in self.param_groups:
+        for group, (offsets, shape_buckets, total_params) in zip(self.param_groups, self._shape_buckets, strict=True):
             params = group["params"]
             if not params:
                 continue
@@ -153,12 +184,13 @@ class Muon(torch.optim.Optimizer):
             backend_steps = group["backend_steps"]
             nesterov = group["nesterov"]
 
-            total_params = sum(int(p.numel()) for p in params)
             updates_flat = torch.zeros(total_params, device=params[0].device, dtype=torch.bfloat16)
-
-            curr = 0
-            for i, p in enumerate(params):
-                if i % world_size == rank and p.grad is not None:
+            for bucket in shape_buckets:
+                local_items: list[tuple[int, Tensor]] = []
+                grads: list[Tensor] = []
+                for i, p in bucket:
+                    if i % world_size != rank or p.grad is None:
+                        continue
                     g = p.grad
                     state = self.state[p]
                     if "momentum_buffer" not in state:
@@ -167,10 +199,20 @@ class Muon(torch.optim.Optimizer):
                     buf.mul_(momentum).add_(g)
                     if nesterov:
                         g = g.add(buf, alpha=momentum)
-                    g = zeropower_via_newtonschulz5(g, steps=backend_steps)
-                    g *= max(1, g.size(0) / g.size(1)) ** 0.5
-                    updates_flat[curr : curr + p.numel()] = g.reshape(-1)
-                curr += p.numel()
+                    local_items.append((i, p))
+                    grads.append(g)
+                if not grads:
+                    continue
+
+                if len(grads) == 1:
+                    updates = zeropower_via_newtonschulz5(grads[0], steps=backend_steps)
+                    updates = updates.unsqueeze(0)
+                else:
+                    updates = zeropower_via_newtonschulz5(torch.stack(grads, dim=0), steps=backend_steps)
+                updates *= max(1, updates.size(-2) / updates.size(-1)) ** 0.5
+                for update, (i, p) in zip(updates, local_items, strict=True):
+                    start = offsets[i]
+                    updates_flat[start : start + p.numel()] = update.reshape(-1)
 
             if distributed:
                 dist.all_reduce(updates_flat, op=dist.ReduceOp.SUM)
