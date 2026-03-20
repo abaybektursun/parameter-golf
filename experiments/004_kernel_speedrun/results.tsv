@@ -6,3 +6,4 @@ b68ddf6	0.0	0.0	-	-	crash	enable torch.compile mode=reduce-overhead (CUDA graphs
 ed7c1a2	724.71	0.0	-	-	keep	MLP relu2 path: inplace ReLU + explicit mul (h*h) instead of relu()+square()
 2d73383	725.15	0.0	-	-	discard	remove logits.float() before cross_entropy (bf16 loss path)
 a5f8656	0.0	0.0	-	-	crash	stateless Rotary + mode=reduce-overhead still crashes (CUDAGraph overwrite in CastedLinear weight.to)
+946b2dc	724.14	0.0	-	-	keep	Muon optimizer single-rank fast path (skip flatten/unflatten staging buffer)

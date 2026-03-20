@@ -9,3 +9,4 @@
 - 2026-03-20: Commit `ed7c1a2` (MLP relu² rewrite to `F.relu(..., inplace=True)` + `h * h`) improved speed benchmark to `724.71ms/step` (from baseline `726.37ms/step`) on 1xA100. Kept as current best.
 - 2026-03-20: Commit `2d73383` (bf16 cross-entropy input by removing `logits.float()`) regressed speed to `725.15ms/step` versus current best `724.71ms/step`; discarded and reverted.
 - 2026-03-20: Commit `a5f8656` replaced RoPE cache with stateless recomputation and retried `mode="reduce-overhead"`; crash persisted with a different CUDAGraph overwrite site (`CastedLinear`'s per-call `weight.to(x.dtype)`). Conclusion: this codebase is broadly incompatible with cudagraph mode without larger refactors.
+- 2026-03-20: Commit `946b2dc` added a `world_size==1` Muon fast path that applies updates directly instead of flatten/unflatten staging. Speed improved to a new best `724.14ms/step` (from `724.71ms/step`). Kept.
