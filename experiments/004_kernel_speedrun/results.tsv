@@ -18,3 +18,4 @@ ce6ec10-local	3380.02	0.0	-	-	discard	port modded-nanogpt-style Triton linear+Re
 7b6cbde-marked	0.00	0.0	-	-	crash	add cudagraph_mark_step_begin on top of stateless Rotary + reduce-overhead; still hit the same overwritten saved-MLP-activation error before warmup
 ae1c40a-local	0.00	0.0	-	-	discard	enable torch.compile(mode=max-autotune-no-cudagraphs); did not reach warmup_step:1/20 after ~1m49s on a 30s smoke benchmark
 238adfc	1466.07	0.0	-	-	discard	force cuDNN SDP backend; isolated attention forward got faster, but full training regressed badly to 1466.07ms at step 80
+7226756	1377.95	0.0	1.6900	5640335	keep	pin training shards and stage one local token span to GPU as int32, then widen targets to int64 only at the loss; rerun confirmed 1377.95ms at step 80
