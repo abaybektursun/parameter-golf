@@ -1,3 +1,4 @@
 commit	ms_per_step	mfu_percent	val_bpb	artifact_bytes	status	description
 f244388	726.37	0.0	-	-	keep	baseline speed benchmark on 1xA100 (ITERATIONS=150, VAL_LOSS_EVERY=0)
 0522fb9	0.0	0.0	-	-	crash	enable torch.compile mode=max-autotune (hangs in autotune/codegen before warmup on 1xA100)
+b68ddf6	0.0	0.0	-	-	crash	enable torch.compile mode=reduce-overhead (CUDA graphs overwrite error in Rotary cache)
