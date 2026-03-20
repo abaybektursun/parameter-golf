@@ -781,11 +781,13 @@ class CausalSelfAttention(nn.Module):
             q_sdpa = q.transpose(1, 2)
             k_sdpa = k.transpose(1, 2)
             v_sdpa = v.transpose(1, 2)
-            if self.num_kv_heads != self.num_heads:
-                repeats = self.num_heads // self.num_kv_heads
-                k_sdpa = k_sdpa.repeat_interleave(repeats, dim=1)
-                v_sdpa = v_sdpa.repeat_interleave(repeats, dim=1)
-            y = F.scaled_dot_product_attention(q_sdpa, k_sdpa, v_sdpa, is_causal=True).transpose(1, 2)
+            y = F.scaled_dot_product_attention(
+                q_sdpa,
+                k_sdpa,
+                v_sdpa,
+                is_causal=True,
+                enable_gqa=self.num_kv_heads != self.num_heads,
+            ).transpose(1, 2)
         y = y.reshape(bsz, seqlen, dim)
         return self.proj(y)
 
