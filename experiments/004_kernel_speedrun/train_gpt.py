@@ -1301,7 +1301,6 @@ def main() -> None:
         bigram_vocab_size=args.bigram_vocab_size,
         bigram_dim=args.bigram_dim,
     ).to(device).bfloat16()
-    restore_low_dim_params_to_fp32(base_model)
     compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True)
     model: nn.Module = DDP(compiled_model, device_ids=[local_rank], broadcast_buffers=False) if distributed else compiled_model
 
@@ -1600,7 +1599,6 @@ def main() -> None:
         mtp_num_heads=0, mtp_loss_weight=0.0,
         bigram_vocab_size=args.bigram_vocab_size, bigram_dim=args.bigram_dim,
     ).to(device).bfloat16()
-    restore_low_dim_params_to_fp32(eval_model)
     eval_model.load_state_dict(deq_state, strict=True)
     compiled_eval = torch.compile(eval_model, dynamic=False, fullgraph=True)
 
