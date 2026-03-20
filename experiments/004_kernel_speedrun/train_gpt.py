@@ -868,40 +868,6 @@ class ReLUSquaredMLPFunction(torch.autograd.Function):
         return grad_x, grad_fc_weight, grad_proj_weight
 
 
-class SoftcappedCrossEntropyFunction(torch.autograd.Function):
-    @staticmethod
-    @torch.amp.custom_fwd(device_type="cuda")
-    def forward(ctx, x: Tensor, weight: Tensor, targets: Tensor, softcap: float) -> Tensor:
-        weight_compute = weight if weight.dtype == x.dtype else weight.to(x.dtype)
-        logits_proj = F.linear(x, weight_compute)
-        logits = softcap * torch.tanh(logits_proj / softcap)
-        loss = F.cross_entropy(logits.float(), targets, reduction="mean")
-        ctx.save_for_backward(x, weight, targets)
-        ctx.softcap = softcap
-        return loss
-
-    @staticmethod
-    @torch.amp.custom_bwd(device_type="cuda")
-    def backward(ctx, grad_output: Tensor) -> tuple[Tensor, Tensor, None, None]:
-        x, weight, targets = ctx.saved_tensors
-        softcap = ctx.softcap
-        weight_compute = weight if weight.dtype == x.dtype else weight.to(x.dtype)
-
-        logits_proj = F.linear(x, weight_compute)
-        tanh_logits = torch.tanh(logits_proj / softcap)
-        logits = softcap * tanh_logits
-        grad_logits = torch.softmax(logits.float(), dim=-1)
-        grad_logits[torch.arange(targets.numel(), device=targets.device), targets] -= 1.0
-        grad_logits.mul_(grad_output.to(dtype=grad_logits.dtype) / targets.numel())
-
-        grad_logits_proj = grad_logits.to(dtype=logits_proj.dtype) * (1.0 - tanh_logits.square())
-        grad_x = F.linear(grad_logits_proj, weight_compute.t())
-        grad_weight = grad_logits_proj.transpose(0, 1) @ x
-        if grad_weight.dtype != weight.dtype:
-            grad_weight = grad_weight.to(weight.dtype)
-        return grad_x, grad_weight, None, None
-
-
 class MLP(nn.Module):
     def __init__(self, dim: int, mlp_mult: int):
         super().__init__()
@@ -1042,11 +1008,13 @@ class GPT(nn.Module):
         x_flat = x.reshape(-1, x.size(-1))
         targets = target_ids.reshape(-1)
         if self.tie_embeddings:
-            main_loss = SoftcappedCrossEntropyFunction.apply(x_flat, self.tok_emb.weight, targets, self.logit_softcap)
+            logits_proj = F.linear(x_flat, self.tok_emb.weight)
         else:
             if self.lm_head is None:
                 raise RuntimeError("lm_head is required when tie_embeddings=False")
-            main_loss = SoftcappedCrossEntropyFunction.apply(x_flat, self.lm_head.weight, targets, self.logit_softcap)
+            logits_proj = self.lm_head(x_flat)
+        logits = self.logit_softcap * torch.tanh(logits_proj / self.logit_softcap)
+        main_loss = F.cross_entropy(logits.float(), targets, reduction="mean")
 
         if self.training and self.mtp_num_heads > 0 and self.mtp_loss_weight > 0.0:
             _, seqlen, dim = x.shape
@@ -1058,9 +1026,9 @@ class GPT(nn.Module):
                     continue
                 mtp_hidden = x[:, :valid_t, :].reshape(-1, dim)
                 mtp_targets = target_ids[:, k + 1 :].reshape(-1)
-                mtp_loss_sum = mtp_loss_sum + SoftcappedCrossEntropyFunction.apply(
-                    mtp_hidden, mtp_head.weight, mtp_targets, self.logit_softcap
-                )
+                mtp_logits_proj = mtp_head(mtp_hidden)
+                mtp_logits = self.logit_softcap * torch.tanh(mtp_logits_proj / self.logit_softcap)
+                mtp_loss_sum = mtp_loss_sum + F.cross_entropy(mtp_logits.float(), mtp_targets, reduction="mean")
                 mtp_loss_count += 1
             if mtp_loss_count > 0:
                 main_loss = main_loss + self.mtp_loss_weight * (mtp_loss_sum / mtp_loss_count)
