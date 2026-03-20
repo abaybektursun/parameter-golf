@@ -9,3 +9,4 @@ a5f8656	0.0	0.0	-	-	crash	stateless Rotary + mode=reduce-overhead still crashes 
 946b2dc	724.14	0.0	-	-	keep	Muon optimizer single-rank fast path (skip flatten/unflatten staging buffer)
 003192b	721.64	0.0	-	-	keep	keep CastedLinear weights in bf16 (remove setup-time module.float cast)
 0a0aa29	0.0	0.0	-	-	crash	torch.compile mode=max-autotune-no-cudagraphs hangs before first warmup step on 1xA100
+af055ab	720.61	0.0	-	-	keep	CastedLinear: skip no-op weight/bias dtype casts when params already match activation dtype
