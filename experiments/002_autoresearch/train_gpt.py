@@ -15,7 +15,6 @@ import subprocess
 import sys
 import time
 import uuid
-import zlib
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +22,7 @@ import sentencepiece as spm
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
+import zstandard as zstd
 from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -443,7 +443,7 @@ def dequantize_state_dict_int8(obj: dict[str, object]) -> dict[str, Tensor]:
 # CUSTOM BINARY SERIALIZATION
 # -----------------------------
 #
-# Replaces torch.save (pickle + ZIP) with a minimal binary format and zlib payload.
+# Replaces torch.save (pickle + ZIP) with a minimal binary format and zstd payload.
 # This is adapted from experiments/003_custom_serialization/ for the mixed int6/int8
 # export object used by this PR #198-derived training script.
 
@@ -476,7 +476,7 @@ def _split_mixed_quant_obj(
 
 
 def serialize_quant_obj(quant_obj: dict[str, object], stats: dict | None = None) -> bytes:
-    """Serialize quantized model to minimal binary format, then zlib compress."""
+    """Serialize quantized model to minimal binary format, then zstd-22 compress."""
     del stats
     quantized, scales, passthrough, dtypes, kinds = _split_mixed_quant_obj(quant_obj)
     parts: list[bytes] = []
@@ -513,12 +513,12 @@ def serialize_quant_obj(quant_obj: dict[str, object], stats: dict | None = None)
         parts.append(data)
 
     raw = b"".join(parts)
-    return zlib.compress(raw, level=9)
+    return zstd.ZstdCompressor(level=22).compress(raw)
 
 
 def deserialize_quant_obj(blob: bytes) -> dict[str, object]:
     """Deserialize the custom binary format back to mixed int6/int8 export objects."""
-    raw = zlib.decompress(blob)
+    raw = zstd.ZstdDecompressor().decompress(blob)
     offset = 0
 
     magic = raw[offset : offset + 4]
@@ -1182,6 +1182,11 @@ def dequantize_mixed_int6(result: dict[str, Tensor], meta: dict[str, object],
 def main() -> None:
     global zeropower_via_newtonschulz5
 
+    import torch._inductor.config as inductor_config
+
+    inductor_config.max_autotune = True
+    inductor_config.max_autotune_gemm = True
+
     code = Path(__file__).read_text(encoding="utf-8")
     args = Hyperparameters()
     zeropower_via_newtonschulz5 = torch.compile(zeropower_via_newtonschulz5)
@@ -1578,8 +1583,8 @@ def main() -> None:
             f.write(quant_blob)
         quant_file_bytes = len(quant_blob)
         code_bytes = len(code.encode("utf-8"))
-        log0(f"Serialized model int6+zlib: {quant_file_bytes} bytes")
-        log0(f"Total submission size int6+zlib: {quant_file_bytes + code_bytes} bytes")
+        log0(f"Serialized model int6+zstd-22: {quant_file_bytes} bytes")
+        log0(f"Total submission size int6+zstd-22: {quant_file_bytes + code_bytes} bytes")
 
     # Roundtrip: decompress + dequantize into fresh model + eval
     if distributed:
