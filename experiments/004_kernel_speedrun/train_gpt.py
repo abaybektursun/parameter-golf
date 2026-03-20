@@ -24,6 +24,8 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import torch._inductor.config as inductor_config
+import triton
+import triton.language as tl
 from torch import Tensor, nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -868,6 +870,136 @@ class ReLUSquaredMLPFunction(torch.autograd.Function):
         return grad_x, grad_fc_weight, grad_proj_weight
 
 
+@triton.jit
+def softcapped_cross_entropy_fwd_kernel(
+    logits_ptr,
+    losses_ptr,
+    lse_ptr,
+    targets_ptr,
+    stride_logits_n,
+    stride_logits_v,
+    n_cols,
+    softcap,
+    BLOCK_SIZE: tl.constexpr,
+):
+    row_idx = tl.program_id(0).to(tl.int64)
+    cols = tl.arange(0, BLOCK_SIZE)
+    mask = cols < n_cols
+    row_ptr = logits_ptr + row_idx * stride_logits_n
+    logits = tl.load(row_ptr + cols * stride_logits_v, mask=mask, other=-float("inf")).to(tl.float32)
+    tanh_logits = 2.0 * tl.sigmoid(2.0 * logits / softcap) - 1.0
+    capped = tl.where(mask, softcap * tanh_logits, -float("inf"))
+    max_val = tl.max(capped, axis=0)
+    lse = max_val + tl.log(tl.sum(tl.exp(capped - max_val), axis=0))
+    target = tl.load(targets_ptr + row_idx).to(tl.int32)
+    target_logit = tl.load(row_ptr + target * stride_logits_v).to(tl.float32)
+    target_capped = softcap * (2.0 * tl.sigmoid(2.0 * target_logit / softcap) - 1.0)
+    tl.store(lse_ptr + row_idx, lse)
+    tl.store(losses_ptr + row_idx, lse - target_capped)
+
+
+@triton.jit
+def softcapped_cross_entropy_bwd_kernel(
+    grad_logits_ptr,
+    grad_output_ptr,
+    lse_ptr,
+    logits_ptr,
+    targets_ptr,
+    stride_logits_n,
+    stride_logits_v,
+    stride_grad_n,
+    stride_grad_v,
+    n_cols,
+    softcap,
+    inv_n_rows,
+    BLOCK_SIZE: tl.constexpr,
+):
+    row_idx = tl.program_id(0).to(tl.int64)
+    cols = tl.arange(0, BLOCK_SIZE)
+    mask = cols < n_cols
+    logits_row_ptr = logits_ptr + row_idx * stride_logits_n
+    grad_row_ptr = grad_logits_ptr + row_idx * stride_grad_n
+
+    logits = tl.load(logits_row_ptr + cols * stride_logits_v, mask=mask, other=0.0).to(tl.float32)
+    tanh_logits = 2.0 * tl.sigmoid(2.0 * logits / softcap) - 1.0
+    capped = softcap * tanh_logits
+    lse = tl.load(lse_ptr + row_idx)
+    probs = tl.exp(capped - lse)
+    target = tl.load(targets_ptr + row_idx).to(tl.int32)
+    grad_scale = tl.load(grad_output_ptr) * inv_n_rows
+    grad = (probs - tl.where(cols == target, 1.0, 0.0)) * (1.0 - tanh_logits * tanh_logits) * grad_scale
+    tl.store(grad_row_ptr + cols * stride_grad_v, grad.to(tl.bfloat16), mask=mask)
+
+
+class TritonSoftcappedCrossEntropyFunction(torch.autograd.Function):
+    @staticmethod
+    @torch.amp.custom_fwd(device_type="cuda")
+    def forward(ctx, x: Tensor, weight: Tensor, targets: Tensor, softcap: float) -> Tensor:
+        if not x.is_cuda:
+            raise RuntimeError("TritonSoftcappedCrossEntropyFunction requires CUDA tensors")
+        weight_compute = weight if weight.dtype == x.dtype else weight.to(x.dtype)
+        logits = F.linear(x, weight_compute).contiguous()
+        targets = targets.contiguous()
+        n_rows, n_cols = logits.shape
+        block_size = min(2048, triton.next_power_of_2(n_cols))
+        losses = torch.empty(n_rows, device=logits.device, dtype=torch.float32)
+        lse = torch.empty(n_rows, device=logits.device, dtype=torch.float32)
+        softcapped_cross_entropy_fwd_kernel[(n_rows,)](
+            logits,
+            losses,
+            lse,
+            targets,
+            logits.stride(0),
+            logits.stride(1),
+            n_cols,
+            softcap,
+            BLOCK_SIZE=block_size,
+            num_warps=4,
+        )
+        ctx.save_for_backward(x, weight, targets, logits, lse)
+        ctx.softcap = softcap
+        return losses.mean()
+
+    @staticmethod
+    @torch.amp.custom_bwd(device_type="cuda")
+    def backward(ctx, grad_output: Tensor) -> tuple[Tensor, Tensor, None, None]:
+        x, weight, targets, logits, lse = ctx.saved_tensors
+        weight_compute = weight if weight.dtype == x.dtype else weight.to(x.dtype)
+        n_rows, n_cols = logits.shape
+        block_size = min(2048, triton.next_power_of_2(n_cols))
+        grad_logits = torch.empty_like(logits)
+        grad_output_scalar = grad_output.reshape(1).to(dtype=torch.float32).contiguous()
+        softcapped_cross_entropy_bwd_kernel[(n_rows,)](
+            grad_logits,
+            grad_output_scalar,
+            lse,
+            logits,
+            targets,
+            logits.stride(0),
+            logits.stride(1),
+            grad_logits.stride(0),
+            grad_logits.stride(1),
+            n_cols,
+            ctx.softcap,
+            1.0 / n_rows,
+            BLOCK_SIZE=block_size,
+            num_warps=4,
+        )
+        grad_x = F.linear(grad_logits, weight_compute.t())
+        grad_weight = grad_logits.transpose(0, 1) @ x
+        if grad_weight.dtype != weight.dtype:
+            grad_weight = grad_weight.to(weight.dtype)
+        return grad_x, grad_weight, None, None
+
+
+def softcapped_cross_entropy_loss(x: Tensor, weight: Tensor, targets: Tensor, softcap: float) -> Tensor:
+    if x.is_cuda:
+        return TritonSoftcappedCrossEntropyFunction.apply(x, weight, targets, softcap)
+    logits = F.linear(x, weight)
+    logits = softcap * torch.tanh(logits / softcap)
+    return F.cross_entropy(logits.float(), targets, reduction="mean")
+
+
 class MLP(nn.Module):
     def __init__(self, dim: int, mlp_mult: int):
         super().__init__()
@@ -1008,13 +1140,11 @@ class GPT(nn.Module):
         x_flat = x.reshape(-1, x.size(-1))
         targets = target_ids.reshape(-1)
         if self.tie_embeddings:
-            logits_proj = F.linear(x_flat, self.tok_emb.weight)
+            main_loss = softcapped_cross_entropy_loss(x_flat, self.tok_emb.weight, targets, self.logit_softcap)
         else:
             if self.lm_head is None:
                 raise RuntimeError("lm_head is required when tie_embeddings=False")
-            logits_proj = self.lm_head(x_flat)
-        logits = self.logit_softcap * torch.tanh(logits_proj / self.logit_softcap)
-        main_loss = F.cross_entropy(logits.float(), targets, reduction="mean")
+            main_loss = softcapped_cross_entropy_loss(x_flat, self.lm_head.weight, targets, self.logit_softcap)
 
         if self.training and self.mtp_num_heads > 0 and self.mtp_loss_weight > 0.0:
             _, seqlen, dim = x.shape
@@ -1026,9 +1156,9 @@ class GPT(nn.Module):
                     continue
                 mtp_hidden = x[:, :valid_t, :].reshape(-1, dim)
                 mtp_targets = target_ids[:, k + 1 :].reshape(-1)
-                mtp_logits_proj = mtp_head(mtp_hidden)
-                mtp_logits = self.logit_softcap * torch.tanh(mtp_logits_proj / self.logit_softcap)
-                mtp_loss_sum = mtp_loss_sum + F.cross_entropy(mtp_logits.float(), mtp_targets, reduction="mean")
+                mtp_loss_sum = mtp_loss_sum + softcapped_cross_entropy_loss(
+                    mtp_hidden, mtp_head.weight, mtp_targets, self.logit_softcap
+                )
                 mtp_loss_count += 1
             if mtp_loss_count > 0:
                 main_loss = main_loss + self.mtp_loss_weight * (mtp_loss_sum / mtp_loss_count)
