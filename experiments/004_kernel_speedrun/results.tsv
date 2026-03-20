@@ -4,3 +4,6 @@ d9eb73d	1423.03	0.0	-	-	keep	restore torch._inductor.config max_autotune + max_a
 213c031	1412.20	0.0	-	-	keep	keep CastedLinear weights in bf16 (remove setup-time module.float from train/eval models; steady-state from step 80 before final eval)
 04a1904	1408.08	0.0	-	-	keep	skip no-op CastedLinear weight/bias dtype casts now that weights stay in bf16 (steady-state from step 80 before final eval)
 a45f3d9	1401.86	0.0	-	-	keep	keep low-dim control tensors in bf16 by removing restore_low_dim_params_to_fp32 (steady-state from step 80 before final eval)
+9b598f5	0.00	0.0	-	-	discard	enable torch.compile(mode=max-autotune); did not reach warmup_step:1/20 after >4 min on 1xA100
+4aea0fa	1379.35	0.0	-	-	keep	recompute ReLU^2 MLP backward to avoid storing the 1536-wide hidden activation (steady-state from step 80)
+809d559	1384.75	0.0	-	-	discard	recompute softcapped cross-entropy backward; faster than old baseline but 5.40ms slower than the MLP-recompute path at step 80
