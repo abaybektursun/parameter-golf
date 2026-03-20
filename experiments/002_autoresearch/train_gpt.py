@@ -52,7 +52,7 @@ class Hyperparameters:
 
     # Training length.
     iterations = int(os.environ.get("ITERATIONS", 12250))
-    warmdown_iters = int(os.environ.get("WARMDOWN_ITERS", 750))
+    warmdown_iters = int(os.environ.get("WARMDOWN_ITERS", 770))
     warmup_steps = int(os.environ.get("WARMUP_STEPS", 20))
     train_batch_tokens = int(os.environ.get("TRAIN_BATCH_TOKENS", 524_288))
     train_seq_len = int(os.environ.get("TRAIN_SEQ_LEN", 2048))
