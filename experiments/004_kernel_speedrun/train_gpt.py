@@ -755,8 +755,9 @@ class MLP(nn.Module):
         self.proj._zero_init = True
 
     def forward(self, x: Tensor) -> Tensor:
-        x = torch.relu(self.fc(x))
-        return self.proj(x.square())
+        h = self.fc(x)
+        h = F.relu(h, inplace=True)
+        return self.proj(h * h)
 
 
 class Block(nn.Module):
