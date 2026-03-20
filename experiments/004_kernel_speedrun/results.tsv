@@ -13,3 +13,4 @@ af055ab	720.61	0.0	-	-	keep	CastedLinear: skip no-op weight/bias dtype casts whe
 45d5a22	717.55	0.0	-	-	keep	keep low-dim/control parameters in bf16 (skip restore_low_dim_params_to_fp32)
 b1a3aed	704.46	0.0	-	-	keep	enable torch._inductor.config max_autotune + max_autotune_gemm
 1ef227f	0.0	0.0	-	-	crash	set max_autotune_gemm_search_space=EXHAUSTIVE (autotune compile timeout before warmup)
+8050d6f	709.77	0.0	-	-	discard	enable torch._inductor.config max_autotune_pointwise
