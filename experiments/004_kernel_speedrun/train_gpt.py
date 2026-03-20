@@ -1047,7 +1047,12 @@ def eval_val_sliding(
     byte_count = torch.zeros((), device=device, dtype=torch.float64)
 
     base_model.eval()
-    compiled_logits = torch.compile(base_model.forward_logits, dynamic=False, fullgraph=True)
+    compiled_logits = torch.compile(
+        base_model.forward_logits,
+        dynamic=False,
+        fullgraph=True,
+        mode="max-autotune",
+    )
 
     with torch.inference_mode():
         for bi in range(0, len(my_windows), batch_seqs):
@@ -1301,7 +1306,12 @@ def main() -> None:
         bigram_vocab_size=args.bigram_vocab_size,
         bigram_dim=args.bigram_dim,
     ).to(device).bfloat16()
-    compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True)
+    compiled_model = torch.compile(
+        base_model,
+        dynamic=False,
+        fullgraph=True,
+        mode="max-autotune",
+    )
     model: nn.Module = DDP(compiled_model, device_ids=[local_rank], broadcast_buffers=False) if distributed else compiled_model
 
     # Optimizer split:
@@ -1600,7 +1610,12 @@ def main() -> None:
         bigram_vocab_size=args.bigram_vocab_size, bigram_dim=args.bigram_dim,
     ).to(device).bfloat16()
     eval_model.load_state_dict(deq_state, strict=True)
-    compiled_eval = torch.compile(eval_model, dynamic=False, fullgraph=True)
+    compiled_eval = torch.compile(
+        eval_model,
+        dynamic=False,
+        fullgraph=True,
+        mode="max-autotune",
+    )
 
     # Standard non-overlapping eval (sanity check)
     torch.cuda.synchronize()
