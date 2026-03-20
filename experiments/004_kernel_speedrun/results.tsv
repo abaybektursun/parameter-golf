@@ -1,2 +1,2 @@
 commit	ms_per_step	mfu_percent	val_bpb	artifact_bytes	status	description
-precommit	726.37	0.0	-	-	keep	baseline speed benchmark on 1xA100 (ITERATIONS=150, VAL_LOSS_EVERY=0)
+f244388	726.37	0.0	-	-	keep	baseline speed benchmark on 1xA100 (ITERATIONS=150, VAL_LOSS_EVERY=0)
