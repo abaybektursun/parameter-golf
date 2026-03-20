@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import copy
 import glob
-import io
 import math
 import os
 import random
+import struct
 import subprocess
 import sys
 import time
@@ -76,7 +76,7 @@ class Hyperparameters:
     tied_embed_lr = float(os.environ.get("TIED_EMBED_LR", 0.03784))
     tied_embed_init_std = float(os.environ.get("TIED_EMBED_INIT_STD", 0.005))
     matrix_lr = float(os.environ.get("MATRIX_LR", 0.05000))
-    scalar_lr = float(os.environ.get("SCALAR_LR", 0.04700))
+    scalar_lr = float(os.environ.get("SCALAR_LR", 0.04000))
     muon_momentum = float(os.environ.get("MUON_MOMENTUM", 0.95))
     muon_backend_steps = int(os.environ.get("MUON_BACKEND_STEPS", 5))
     muon_momentum_warmup_start = float(os.environ.get("MUON_MOMENTUM_WARMUP_START", 0.85))
@@ -420,6 +420,148 @@ def dequantize_state_dict_int8(obj: dict[str, object]) -> dict[str, Tensor]:
             out_t = out_t.to(dtype=getattr(torch, orig_dtype)).contiguous()
         out[name] = out_t
     return out
+
+
+# -----------------------------
+# CUSTOM BINARY SERIALIZATION
+# -----------------------------
+#
+# Replaces torch.save (pickle + ZIP) with a minimal binary format.
+# Saves ~500 KB of overhead that can be used for more parameters.
+#
+# Format: magic(4) + num_tensors(H) + [name_len(B) + name + ndim(B) + shape(I*ndim) + dtype_code(B) + data_bytes]...
+# dtype codes: 0=int8, 1=float16, 2=float32, 3=bfloat16
+
+_DTYPE_TO_CODE = {torch.int8: 0, torch.float16: 1, torch.float32: 2, torch.bfloat16: 3}
+_CODE_TO_DTYPE = {v: k for k, v in _DTYPE_TO_CODE.items()}
+_SERIAL_MAGIC = b"PG01"
+
+
+def serialize_quant_obj(quant_obj: dict, stats: dict) -> bytes:
+    """Serialize quantized model to minimal binary format, then zlib compress."""
+    parts: list[bytes] = []
+    # Collect all tensors: quantized weights + scales + passthrough
+    entries: list[tuple[str, Tensor, str | None]] = []
+    for name, q in quant_obj["quantized"].items():
+        entries.append((f"q:{name}", q, None))
+        entries.append((f"s:{name}", quant_obj["scales"][name], None))
+    for name, t in quant_obj["passthrough"].items():
+        orig = quant_obj.get("passthrough_orig_dtypes", {}).get(name)
+        entries.append((f"p:{name}", t, orig))
+    per_row_names = set()
+    for name, meta in quant_obj.get("qmeta", {}).items():
+        if meta.get("scheme") == "per_row":
+            per_row_names.add(name)
+    quant_dtypes = quant_obj.get("dtypes", {})
+
+    # Section 1: metadata as a compact utf-8 string
+    meta_parts = []
+    for name, dtype_str in quant_dtypes.items():
+        meta_parts.append(f"D|{name}|{dtype_str}")
+    for name in per_row_names:
+        meta_parts.append(f"R|{name}")
+    for name, orig in quant_obj.get("passthrough_orig_dtypes", {}).items():
+        meta_parts.append(f"O|{name}|{orig}")
+    meta_str = "\n".join(meta_parts).encode("utf-8")
+
+    parts.append(_SERIAL_MAGIC)
+    parts.append(struct.pack("<HI", len(entries), len(meta_str)))
+    parts.append(meta_str)
+
+    for name, tensor, _ in entries:
+        t = tensor.detach().contiguous()
+        name_bytes = name.encode("utf-8")
+        dtype_code = _DTYPE_TO_CODE[t.dtype]
+        data = t.numpy().tobytes()
+        parts.append(struct.pack("<B", len(name_bytes)))
+        parts.append(name_bytes)
+        parts.append(struct.pack("<B", t.ndim))
+        for d in t.shape:
+            parts.append(struct.pack("<I", d))
+        parts.append(struct.pack("<B", dtype_code))
+        parts.append(data)
+
+    raw = b"".join(parts)
+    return zlib.compress(raw, level=9)
+
+
+def deserialize_quant_obj(blob: bytes) -> dict[str, object]:
+    """Deserialize from custom binary format back to quant_obj dict."""
+    raw = zlib.decompress(blob)
+    offset = 0
+
+    magic = raw[offset:offset + 4]
+    offset += 4
+    assert magic == _SERIAL_MAGIC, f"Bad magic: {magic}"
+    num_entries, meta_len = struct.unpack_from("<HI", raw, offset)
+    offset += 6
+    meta_str = raw[offset:offset + meta_len].decode("utf-8")
+    offset += meta_len
+
+    # Parse metadata
+    quant_dtypes: dict[str, str] = {}
+    per_row_names: set[str] = set()
+    passthrough_orig_dtypes: dict[str, str] = {}
+    for line in meta_str.split("\n"):
+        if not line:
+            continue
+        parts = line.split("|")
+        if parts[0] == "D":
+            quant_dtypes[parts[1]] = parts[2]
+        elif parts[0] == "R":
+            per_row_names.add(parts[1])
+        elif parts[0] == "O":
+            passthrough_orig_dtypes[parts[1]] = parts[2]
+
+    # Read tensors
+    quantized: dict[str, Tensor] = {}
+    scales: dict[str, Tensor] = {}
+    passthrough: dict[str, Tensor] = {}
+
+    for _ in range(num_entries):
+        name_len = struct.unpack_from("<B", raw, offset)[0]
+        offset += 1
+        name = raw[offset:offset + name_len].decode("utf-8")
+        offset += name_len
+        ndim = struct.unpack_from("<B", raw, offset)[0]
+        offset += 1
+        shape = []
+        for _ in range(ndim):
+            shape.append(struct.unpack_from("<I", raw, offset)[0])
+            offset += 4
+        dtype_code = struct.unpack_from("<B", raw, offset)[0]
+        offset += 1
+        dtype = _CODE_TO_DTYPE[dtype_code]
+        numel = 1
+        for d in shape:
+            numel *= d
+        _DTYPE_SIZES = {torch.int8: 1, torch.float16: 2, torch.float32: 4, torch.bfloat16: 2}
+        nbytes = numel * _DTYPE_SIZES[dtype]
+        data = raw[offset:offset + nbytes]
+        offset += nbytes
+        tensor = torch.frombuffer(bytearray(data), dtype=dtype).reshape(shape).contiguous()
+
+        if name.startswith("q:"):
+            quantized[name[2:]] = tensor
+        elif name.startswith("s:"):
+            scales[name[2:]] = tensor
+        elif name.startswith("p:"):
+            passthrough[name[2:]] = tensor
+
+    # Reconstruct quant_obj
+    qmeta = {name: {"scheme": "per_row", "axis": 0} for name in per_row_names}
+    obj: dict[str, object] = {
+        "__quant_format__": "int8_clean_per_row_v1",
+        "quantized": quantized,
+        "scales": scales,
+        "dtypes": quant_dtypes,
+        "passthrough": passthrough,
+    }
+    if qmeta:
+        obj["qmeta"] = qmeta
+    if passthrough_orig_dtypes:
+        obj["passthrough_orig_dtypes"] = passthrough_orig_dtypes
+    return obj
 
 
 # -----------------------------
@@ -1074,11 +1216,7 @@ def main() -> None:
         log0(f"Total submission size: {model_bytes + code_bytes} bytes")
 
     quant_obj, quant_stats = quantize_state_dict_int8(base_model.state_dict())
-    quant_buf = io.BytesIO()
-    torch.save(quant_obj, quant_buf)
-    quant_raw = quant_buf.getvalue()
-    quant_blob = zlib.compress(quant_raw, level=9)
-    quant_raw_bytes = len(quant_raw)
+    quant_blob = serialize_quant_obj(quant_obj, quant_stats)
     if master_process:
         with open("final_model.int8.ptz", "wb") as f:
             f.write(quant_blob)
@@ -1086,8 +1224,8 @@ def main() -> None:
         code_bytes = len(code.encode("utf-8"))
         ratio = quant_stats["baseline_tensor_bytes"] / max(quant_stats["int8_payload_bytes"], 1)
         log0(
-            f"Serialized model int8+zlib: {quant_file_bytes} bytes "
-            f"(payload:{quant_stats['int8_payload_bytes']} raw_torch:{quant_raw_bytes} payload_ratio:{ratio:.2f}x)"
+            f"Serialized model int8+zlib (custom): {quant_file_bytes} bytes "
+            f"(payload:{quant_stats['int8_payload_bytes']} payload_ratio:{ratio:.2f}x)"
         )
         log0(f"Total submission size int8+zlib: {quant_file_bytes + code_bytes} bytes")
 
@@ -1095,7 +1233,7 @@ def main() -> None:
         dist.barrier()
     with open("final_model.int8.ptz", "rb") as f:
         quant_blob_disk = f.read()
-    quant_state = torch.load(io.BytesIO(zlib.decompress(quant_blob_disk)), map_location="cpu")
+    quant_state = deserialize_quant_obj(quant_blob_disk)
     base_model.load_state_dict(dequantize_state_dict_int8(quant_state), strict=True)
     torch.cuda.synchronize()
     t_qeval = time.perf_counter()
