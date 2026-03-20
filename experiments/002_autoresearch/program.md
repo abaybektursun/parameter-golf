@@ -46,7 +46,16 @@ For faster iteration (smoke tests before full runs), you can do a short run:
 ITERATIONS=200 VAL_LOSS_EVERY=0 MAX_WALLCLOCK_SECONDS=60 torchrun --standalone --nproc_per_node=$NUM_GPUS experiments/002_autoresearch/train_gpt.py
 ```
 
-**Note**: The leaderboard target is 8xH100s. If you have fewer GPUs, training will be slower per step (more gradient accumulation). The wall clock and results won't match the leaderboard exactly, but relative comparisons between your experiments are still valid.
+**IMPORTANT — Hardware migration (2026-03-20)**:
+All previous experiments in `results.tsv` (up to ~98 runs) were conducted on a **single A100 GPU**. You are now running on **8xH100 GPUs**, which matches the actual leaderboard hardware. Key implications:
+- On 1xA100: `grad_accum_steps=8`, ~378ms/step, ~1,589 steps in 600s.
+- On 8xH100: `grad_accum_steps=1` (parallel across GPUs), ~50-60ms/step, ~10,000-12,000 steps in 600s.
+- **The model trains 6-8x more steps now.** This means the absolute BPB numbers will be much better than what's in the historical results.
+- The best 1xA100 result was post-quant BPB 1.3480. The same config achieved **1.2947** on 1xH100 in a test run. On 8xH100 it should be significantly lower.
+- **Hyperparameter tuning from A100 runs is directionally useful** (relative rankings mostly hold), but absolute values like `WARMDOWN_ITERS=220` were tuned for ~1,100 steps and might need retuning for ~10,000+ steps.
+- The SOTA target is **1.206 val_bpb**. This is now reachable.
+
+**Note**: The leaderboard target is 8xH100s. You now have the full leaderboard hardware.
 
 **What you CAN do:**
 - Modify `experiments/002_autoresearch/train_gpt.py` — this is the only file you edit. Everything is fair game: model architecture, optimizer, hyperparameters, training loop, batch size, model size, quantization strategy, etc.
@@ -159,3 +168,18 @@ LOOP FOREVER:
 - Logit softcap tuning
 - RoPE base frequency tuning
 - Batch size / gradient accumulation tweaks
+
+## Advanced ideas (use when confident)
+
+Beyond hyperparameter tuning, there are researched optimization ideas in this repo that you can implement if you're confident they will yield improvements. Read these files for full details:
+
+- **`experiments/optimization_opportunities.md`** — ranked list of optimizations with expected impact:
+  - Tier 1 (easy, high impact): `mode="max-autotune"` in torch.compile (one-line change), fused cross-entropy + logit softcap, fused ReLU² MLP
+  - Tier 2 (medium): batch size warmup schedule, Triton autotune config, Lookahead/SNOO outer optimizer + LAWA
+  - Tier 3+: profiling, seq4096, mixed FP8
+
+- **`experiments/001_combine_three_wins/`** — combines seq2048 + FP16 embed quantization + sliding window eval (the top 3 leaderboard tricks, all orthogonal). Has a ready `train_gpt.py`.
+
+- **`experiments/002_lookahead_snoo_lawa/`** — Lookahead/SNOO outer optimizer + LAWA checkpoint averaging for flatter minima that survive int8 quantization better. Has a ready `train_gpt.py`.
+
+**When to use these:** If hyperparameter sweeps are hitting diminishing returns, try these bigger architectural/training changes. You can copy working code from the experiment `train_gpt.py` files into your working copy. Test one change at a time so you know what helped.
