@@ -57,7 +57,7 @@ class Hyperparameters:
 
     # Validation cadence and batch size. Validation always uses the full fineweb_val split.
     val_batch_size = int(os.environ.get("VAL_BATCH_SIZE", 524_288))
-    val_loss_every = int(os.environ.get("VAL_LOSS_EVERY", 1000))
+    val_loss_every = int(os.environ.get("VAL_LOSS_EVERY", 0))
     train_log_every = int(os.environ.get("TRAIN_LOG_EVERY", 200))
 
     # Training length.
@@ -72,7 +72,7 @@ class Hyperparameters:
 
     # Model shape.
     vocab_size = int(os.environ.get("VOCAB_SIZE", 1024))
-    num_layers = int(os.environ.get("NUM_LAYERS", 9))
+    num_layers = int(os.environ.get("NUM_LAYERS", 10))
     num_kv_heads = int(os.environ.get("NUM_KV_HEADS", 4))
     model_dim = int(os.environ.get("MODEL_DIM", 512))
     num_heads = int(os.environ.get("NUM_HEADS", 8))
@@ -105,7 +105,7 @@ class Hyperparameters:
     muon_wd = float(os.environ.get("MUON_WD", 0.02))
     adam_wd = float(os.environ.get("ADAM_WD", 0.01))
     qat_enabled = bool(int(os.environ.get("QAT_ENABLED", "0")))
-    bigram_vocab_size = int(os.environ.get("BIGRAM_VOCAB_SIZE", 4096))
+    bigram_vocab_size = int(os.environ.get("BIGRAM_VOCAB_SIZE", 1536))
     bigram_dim = int(os.environ.get("BIGRAM_DIM", 128))
 
 # -----------------------------
