@@ -113,17 +113,20 @@ class Hyperparameters:
 
 def zeropower_via_newtonschulz5(G: Tensor, steps: int = 10, eps: float = 1e-7) -> Tensor:
     a, b, c = (3.4445, -4.7750, 2.0315)
-    if G.ndim == 2:
-        X = G.bfloat16()
-        X /= X.norm() + eps
-        transposed = G.size(0) > G.size(1)
-        if transposed:
-            X = X.T
-        for _ in range(steps):
-            A = X @ X.T
-            B = b * A + c * A @ A
-            X = a * X + B @ X
-        return X.T if transposed else X
+    X = G.bfloat16()
+    X /= X.norm() + eps
+    transposed = G.size(0) > G.size(1)
+    if transposed:
+        X = X.T
+    for _ in range(steps):
+        A = X @ X.T
+        B = b * A + c * A @ A
+        X = a * X + B @ X
+    return X.T if transposed else X
+
+
+def zeropower_via_newtonschulz5_batched(G: Tensor, steps: int = 10, eps: float = 1e-7) -> Tensor:
+    a, b, c = (3.4445, -4.7750, 2.0315)
     X = G.bfloat16()
     X /= X.norm(dim=(-2, -1), keepdim=True) + eps
     transposed = G.size(-2) > G.size(-1)
@@ -208,7 +211,7 @@ class Muon(torch.optim.Optimizer):
                     updates = zeropower_via_newtonschulz5(grads[0], steps=backend_steps)
                     updates = updates.unsqueeze(0)
                 else:
-                    updates = zeropower_via_newtonschulz5(torch.stack(grads, dim=0), steps=backend_steps)
+                    updates = zeropower_via_newtonschulz5_batched(torch.stack(grads, dim=0), steps=backend_steps)
                 updates *= max(1, updates.size(-2) / updates.size(-1)) ** 0.5
                 for update, (i, p) in zip(updates, local_items, strict=True):
                     start = offsets[i]
@@ -1273,13 +1276,17 @@ def dequantize_mixed_int6(result: dict[str, Tensor], meta: dict[str, object],
 # -----------------------------
 
 def main() -> None:
-    global zeropower_via_newtonschulz5
+    global zeropower_via_newtonschulz5, zeropower_via_newtonschulz5_batched
 
     code = Path(__file__).read_text(encoding="utf-8")
     args = Hyperparameters()
     inductor_config.max_autotune = True
     inductor_config.max_autotune_gemm = True
     zeropower_via_newtonschulz5 = torch.compile(zeropower_via_newtonschulz5)
+    zeropower_via_newtonschulz5_batched = torch.compile(
+        zeropower_via_newtonschulz5_batched,
+        options={"max_autotune": False, "max_autotune_gemm": False},
+    )
 
     # -----------------------------
     # DISTRIBUTED + CUDA SETUP
