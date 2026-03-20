@@ -827,6 +827,47 @@ class BigramHashEmbedding(nn.Module):
         return h * self.scale.to(dtype=h.dtype)
 
 
+class ReLUSquaredMLPFunction(torch.autograd.Function):
+    @staticmethod
+    @torch.amp.custom_fwd(device_type="cuda")
+    def forward(ctx, x: Tensor, fc_weight: Tensor, proj_weight: Tensor) -> Tensor:
+        x_2d = x.reshape(-1, x.size(-1))
+        fc_weight_compute = fc_weight if fc_weight.dtype == x_2d.dtype else fc_weight.to(x_2d.dtype)
+        hidden = torch.relu(F.linear(x_2d, fc_weight_compute))
+        proj_weight_compute = proj_weight if proj_weight.dtype == hidden.dtype else proj_weight.to(hidden.dtype)
+        out = F.linear(hidden.square(), proj_weight_compute)
+        ctx.save_for_backward(x, fc_weight, proj_weight)
+        return out.reshape(*x.shape[:-1], proj_weight.size(0))
+
+    @staticmethod
+    @torch.amp.custom_bwd(device_type="cuda")
+    def backward(ctx, grad_output: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+        x, fc_weight, proj_weight = ctx.saved_tensors
+        x_2d = x.reshape(-1, x.size(-1))
+        grad_out_2d = grad_output.reshape(-1, grad_output.size(-1))
+
+        fc_weight_compute = fc_weight if fc_weight.dtype == x_2d.dtype else fc_weight.to(x_2d.dtype)
+        proj_weight_compute = proj_weight if proj_weight.dtype == grad_out_2d.dtype else proj_weight.to(grad_out_2d.dtype)
+
+        hidden_preact = F.linear(x_2d, fc_weight_compute)
+        hidden = torch.relu(hidden_preact)
+        hidden_sq = hidden.square()
+
+        grad_hidden_sq = F.linear(grad_out_2d, proj_weight_compute.t())
+        grad_hidden = grad_hidden_sq * (2.0 * hidden)
+        grad_hidden_preact = grad_hidden * (hidden_preact > 0)
+
+        grad_x = F.linear(grad_hidden_preact, fc_weight_compute.t()).reshape_as(x)
+        grad_fc_weight = grad_hidden_preact.transpose(0, 1) @ x_2d
+        grad_proj_weight = grad_out_2d.transpose(0, 1) @ hidden_sq
+
+        if grad_fc_weight.dtype != fc_weight.dtype:
+            grad_fc_weight = grad_fc_weight.to(fc_weight.dtype)
+        if grad_proj_weight.dtype != proj_weight.dtype:
+            grad_proj_weight = grad_proj_weight.to(proj_weight.dtype)
+        return grad_x, grad_fc_weight, grad_proj_weight
+
+
 class MLP(nn.Module):
     def __init__(self, dim: int, mlp_mult: int):
         super().__init__()
@@ -836,8 +877,14 @@ class MLP(nn.Module):
         self.proj._zero_init = True
 
     def forward(self, x: Tensor) -> Tensor:
-        x = torch.relu(self.fc(x))
-        return self.proj(x.square())
+        if (
+            CastedLinear._qat_enabled
+            or self.fc.bias is not None
+            or self.proj.bias is not None
+        ):
+            x = torch.relu(self.fc(x))
+            return self.proj(x.square())
+        return ReLUSquaredMLPFunction.apply(x, self.fc.weight, self.proj.weight)
 
 
 class Block(nn.Module):
