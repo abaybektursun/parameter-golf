@@ -32,12 +32,6 @@ try:
 except ImportError:
     flash_attn_3_func = None
 
-
-def cudagraph_step_begin() -> None:
-    mark_step_begin = getattr(torch.compiler, "cudagraph_mark_step_begin", None)
-    if mark_step_begin is not None:
-        mark_step_begin()
-
 # -----------------------------
 # HYPERPARAMETERS
 # -----------------------------
@@ -280,7 +274,6 @@ def eval_val(
             x = local[:-1].reshape(-1, seq_len)
             y = local[1:].reshape(-1, seq_len)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=True):
-                cudagraph_step_begin()
                 batch_loss = model(x, y).detach()
             batch_token_count = float(y.numel())
             val_loss_sum += batch_loss.to(torch.float64) * batch_token_count
@@ -1121,7 +1114,6 @@ def eval_val_sliding(
                 y_batch[i, :wlen] = chunk[1:]
 
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                cudagraph_step_begin()
                 logits = compiled_logits(x_batch)
 
             nll = F.cross_entropy(
@@ -1356,7 +1348,7 @@ def main() -> None:
         bigram_vocab_size=args.bigram_vocab_size,
         bigram_dim=args.bigram_dim,
     ).to(device).bfloat16()
-    compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True, mode="reduce-overhead")
+    compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True)
     model: nn.Module = DDP(compiled_model, device_ids=[local_rank], broadcast_buffers=False) if distributed else compiled_model
 
     # Optimizer split:
@@ -1476,7 +1468,6 @@ def main() -> None:
                     model.require_backward_grad_sync = micro_step == grad_accum_steps - 1
                 x, y = train_loader.next_batch(args.train_batch_tokens, args.train_seq_len, grad_accum_steps)
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=True):
-                    cudagraph_step_begin()
                     warmup_loss = model(x, y)
                 (warmup_loss * grad_scale).backward()
             for opt in optimizers:
@@ -1548,7 +1539,6 @@ def main() -> None:
                 model.require_backward_grad_sync = micro_step == grad_accum_steps - 1
             x, y = train_loader.next_batch(args.train_batch_tokens, args.train_seq_len, grad_accum_steps)
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=True):
-                cudagraph_step_begin()
                 loss = model(x, y)
             train_loss += loss.detach()
             (loss * grad_scale).backward()
