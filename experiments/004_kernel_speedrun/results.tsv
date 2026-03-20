@@ -1,22 +1,3 @@
 commit	ms_per_step	mfu_percent	val_bpb	artifact_bytes	status	description
-f244388	726.37	0.0	-	-	keep	baseline speed benchmark on 1xA100 (ITERATIONS=150, VAL_LOSS_EVERY=0)
-0522fb9	0.0	0.0	-	-	crash	enable torch.compile mode=max-autotune (hangs in autotune/codegen before warmup on 1xA100)
-b68ddf6	0.0	0.0	-	-	crash	enable torch.compile mode=reduce-overhead (CUDA graphs overwrite error in Rotary cache)
-91d4e5f	0.0	0.0	-	-	crash	mode=reduce-overhead + cudagraph_mark_step_begin still crashes on Rotary cache overwrite
-ed7c1a2	724.71	0.0	-	-	keep	MLP relu2 path: inplace ReLU + explicit mul (h*h) instead of relu()+square()
-2d73383	725.15	0.0	-	-	discard	remove logits.float() before cross_entropy (bf16 loss path)
-a5f8656	0.0	0.0	-	-	crash	stateless Rotary + mode=reduce-overhead still crashes (CUDAGraph overwrite in CastedLinear weight.to)
-946b2dc	724.14	0.0	-	-	keep	Muon optimizer single-rank fast path (skip flatten/unflatten staging buffer)
-003192b	721.64	0.0	-	-	keep	keep CastedLinear weights in bf16 (remove setup-time module.float cast)
-0a0aa29	0.0	0.0	-	-	crash	torch.compile mode=max-autotune-no-cudagraphs hangs before first warmup step on 1xA100
-af055ab	720.61	0.0	-	-	keep	CastedLinear: skip no-op weight/bias dtype casts when params already match activation dtype
-45d5a22	717.55	0.0	-	-	keep	keep low-dim/control parameters in bf16 (skip restore_low_dim_params_to_fp32)
-b1a3aed	704.46	0.0	-	-	keep	enable torch._inductor.config max_autotune + max_autotune_gemm
-1ef227f	0.0	0.0	-	-	crash	set max_autotune_gemm_search_space=EXHAUSTIVE (autotune compile timeout before warmup)
-8050d6f	709.77	0.0	-	-	discard	enable torch._inductor.config max_autotune_pointwise
-9c11f3b	0.0	0.0	-	-	crash	enable torch._inductor.config coordinate_descent_tuning (hang before warmup)
-cf5dd11	0.0	0.0	-	-	crash	in-place logit softcap on logits_proj breaks autograd under torch.compile
-3c18e4c	706.39	0.0	-	-	discard	Muon zeropower Newton-Schulz internal compute in fp16 instead of bf16
-d3acedc	704.98	0.0	-	-	discard	cache Rotary cos/sin in active compute dtype to avoid per-call dtype casts
-2c2a68c	716.75	0.0	-	-	discard	force inductor max_autotune_gemm_backends=ATEN
-a5a5022	706.81	0.0	-	-	discard	set max_autotune_gemm_backends=TRITON,ATEN
+d506433	1436.53	0.0	-	-	keep	11-layer baseline speed benchmark on 1xA100 (ITERATIONS=150, VAL_LOSS_EVERY=0, cap hit at step 84)
+d9eb73d	1423.03	0.0	-	-	keep	restore torch._inductor.config max_autotune + max_autotune_gemm on 11-layer baseline (steady-state from step 80 before final eval)
