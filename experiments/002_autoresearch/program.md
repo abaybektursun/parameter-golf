@@ -55,6 +55,12 @@ All previous experiments in `results.tsv` (up to ~98 runs) were conducted on a *
 - **Hyperparameter tuning from A100 runs is directionally useful** (relative rankings mostly hold), but absolute values like `WARMDOWN_ITERS=220` were tuned for ~1,100 steps and might need retuning for ~10,000+ steps.
 - The SOTA target is **1.206 val_bpb**. This is now reachable.
 
+**IMPORTANT — Artifact size is tight**:
+The current best model artifact is **~15.86 MB** out of the **16 MB (16,777,216 bytes)** limit — only **~0.87 MB headroom**. More training steps (8xH100) produce weights that are harder to compress, so the artifact grew from ~14.6 MB (A100) to ~15.86 MB. Be very careful with changes that increase model size (more params, wider layers). Any change that pushes the artifact over 16 MB will be auto-discarded.
+
+**IMPORTANT — Use custom serialization from experiment 003**:
+`experiments/003_custom_serialization/` contains an improved serialization method that saves ~500 KB on artifact size. You should adopt this serialization into your working copy (`experiments/002_autoresearch/train_gpt.py`) to gain headroom. Read `experiments/003_custom_serialization/notes.md` and its `train_gpt.py` for details. This is a free win — it doesn't change training, only how the model is saved.
+
 **Note**: The leaderboard target is 8xH100s. You now have the full leaderboard hardware.
 
 **What you CAN do:**
