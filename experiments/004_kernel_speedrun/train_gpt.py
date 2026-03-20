@@ -186,8 +186,15 @@ class Muon(torch.optim.Optimizer):
             momentum = group["momentum"]
             backend_steps = group["backend_steps"]
             nesterov = group["nesterov"]
+            wd = group.get("weight_decay", 0.0)
+            direct_apply = not distributed
 
-            updates_flat = torch.zeros(total_params, device=params[0].device, dtype=torch.bfloat16)
+            if direct_apply:
+                if wd > 0.0:
+                    for p in params:
+                        p.data.mul_(1.0 - lr * wd)
+            else:
+                updates_flat = torch.zeros(total_params, device=params[0].device, dtype=torch.bfloat16)
             for bucket in shape_buckets:
                 local_items: list[tuple[int, Tensor]] = []
                 grads: list[Tensor] = []
@@ -214,20 +221,21 @@ class Muon(torch.optim.Optimizer):
                     updates = zeropower_via_newtonschulz5_batched(torch.stack(grads, dim=0), steps=backend_steps)
                 updates *= max(1, updates.size(-2) / updates.size(-1)) ** 0.5
                 for update, (i, p) in zip(updates, local_items, strict=True):
-                    start = offsets[i]
-                    updates_flat[start : start + p.numel()] = update.reshape(-1)
+                    if direct_apply:
+                        p.add_(update.to(dtype=p.dtype), alpha=-lr)
+                    else:
+                        start = offsets[i]
+                        updates_flat[start : start + p.numel()] = update.reshape(-1)
 
             if distributed:
                 dist.all_reduce(updates_flat, op=dist.ReduceOp.SUM)
-
-            wd = group.get("weight_decay", 0.0)
-            curr = 0
-            for p in params:
-                if wd > 0.0:
-                    p.data.mul_(1.0 - lr * wd)
-                g = updates_flat[curr : curr + p.numel()].view_as(p).to(dtype=p.dtype)
-                p.add_(g, alpha=-lr)
-                curr += p.numel()
+                curr = 0
+                for p in params:
+                    if wd > 0.0:
+                        p.data.mul_(1.0 - lr * wd)
+                    g = updates_flat[curr : curr + p.numel()].view_as(p).to(dtype=p.dtype)
+                    p.add_(g, alpha=-lr)
+                    curr += p.numel()
 
         return loss
 
