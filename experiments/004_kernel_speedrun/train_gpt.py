@@ -1003,8 +1003,7 @@ def main() -> None:
         rope_base=args.rope_base,
         qk_gain_init=args.qk_gain_init,
     ).to(device).bfloat16()
-    # Keep linear weights in bf16 to avoid per-forward fp32->bf16 cast overhead.
-    restore_low_dim_params_to_fp32(base_model)
+    # Keep all params in bf16 for faster forward-path dtype matching.
     compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True)
     model: nn.Module = DDP(compiled_model, device_ids=[local_rank], broadcast_buffers=False) if distributed else compiled_model
 
