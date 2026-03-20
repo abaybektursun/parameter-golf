@@ -13,3 +13,4 @@ c478c6c	0.00	0.0	-	-	crash	enable torch.compile(mode=reduce-overhead); crashed b
 54b1819	0.00	0.0	-	-	crash	add cudagraph_mark_step_begin around compiled calls; still hit the same reduce-overhead Rotary-cache overwrite error before warmup
 cee35c1	0.00	0.0	-	-	crash	clone RoPE cache outputs under reduce-overhead; still crashed before warmup with the same CUDA-graphs overwrite error
 74a4a14	2153.21	0.0	-	-	discard	add Triton softcapped CE kernel; numerically close and compile-compatible, but about 774ms slower by step 10 so the run was aborted early
+ce6ec10-local	3380.02	0.0	-	-	discard	port modded-nanogpt-style Triton linear+ReLU^2 via torch.library custom_op wrappers; compiled after ~2 min startup but regressed hard to 3380.02ms by step 10
