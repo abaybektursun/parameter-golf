@@ -14,3 +14,5 @@ c478c6c	0.00	0.0	-	-	crash	enable torch.compile(mode=reduce-overhead); crashed b
 cee35c1	0.00	0.0	-	-	crash	clone RoPE cache outputs under reduce-overhead; still crashed before warmup with the same CUDA-graphs overwrite error
 74a4a14	2153.21	0.0	-	-	discard	add Triton softcapped CE kernel; numerically close and compile-compatible, but about 774ms slower by step 10 so the run was aborted early
 ce6ec10-local	3380.02	0.0	-	-	discard	port modded-nanogpt-style Triton linear+ReLU^2 via torch.library custom_op wrappers; compiled after ~2 min startup but regressed hard to 3380.02ms by step 10
+7b6cbde-local	0.00	0.0	-	-	crash	make Rotary stateless and retry torch.compile(mode=reduce-overhead); old RoPE-cache crash moved to overwritten saved MLP activation in ReLUSquaredMLPFunction.backward before warmup
+7b6cbde-marked	0.00	0.0	-	-	crash	add cudagraph_mark_step_begin on top of stateless Rotary + reduce-overhead; still hit the same overwritten saved-MLP-activation error before warmup
