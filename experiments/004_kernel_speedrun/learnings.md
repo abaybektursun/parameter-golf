@@ -20,3 +20,4 @@
 - 2026-03-20: Commit `9c11f3b` enabled `coordinate_descent_tuning=True` with max GEMM autotune, but stalled before first warmup (`run.log` frozen at 658 bytes for minutes). Terminated and marked `crash`.
 - 2026-03-20: Commit `cf5dd11` attempted in-place softcap on `logits_proj` (`mul_`/`tanh_`) before cross-entropy. `torch.compile`/AOT autograd failed with an in-place versioning error on the logits tensor (`RuntimeError: one of the variables needed for gradient computation has been modified by an inplace operation`). Marked `crash`.
 - 2026-03-20: Commit `3c18e4c` changed Muon zeropower's internal compute tensor from bf16 to fp16 (`X = G.half()`). This regressed speed to `706.39ms/step` from the `704.46ms/step` best, so it was discarded.
+- 2026-03-20: Commit `d3acedc` cached RoPE `cos/sin` tables directly in the active compute dtype to avoid per-call `.to(dtype)` casts. Result was slightly slower (`704.98ms/step`) than the `704.46ms/step` best, so discarded.
