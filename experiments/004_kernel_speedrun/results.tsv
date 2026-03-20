@@ -1,3 +1,4 @@
 commit	ms_per_step	mfu_percent	val_bpb	artifact_bytes	status	description
 d506433	1436.53	0.0	-	-	keep	11-layer baseline speed benchmark on 1xA100 (ITERATIONS=150, VAL_LOSS_EVERY=0, cap hit at step 84)
 d9eb73d	1423.03	0.0	-	-	keep	restore torch._inductor.config max_autotune + max_autotune_gemm on 11-layer baseline (steady-state from step 80 before final eval)
+213c031	1412.20	0.0	-	-	keep	keep CastedLinear weights in bf16 (remove setup-time module.float from train/eval models; steady-state from step 80 before final eval)
