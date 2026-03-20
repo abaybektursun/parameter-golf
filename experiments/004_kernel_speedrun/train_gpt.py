@@ -727,8 +727,7 @@ class Rotary(nn.Module):
             self._cos_cached = freqs.cos()[None, :, None, :]
             self._sin_cached = freqs.sin()[None, :, None, :]
             self._seq_len_cached = seq_len
-        # Fresh outputs avoid cudagraph aliasing on the cached buffers.
-        return self._cos_cached.to(dtype=dtype).clone(), self._sin_cached.to(dtype=dtype).clone()
+        return self._cos_cached.to(dtype=dtype), self._sin_cached.to(dtype=dtype)
 
 
 def apply_rotary_emb(x: Tensor, cos: Tensor, sin: Tensor) -> Tensor:
@@ -1349,7 +1348,7 @@ def main() -> None:
         bigram_vocab_size=args.bigram_vocab_size,
         bigram_dim=args.bigram_dim,
     ).to(device).bfloat16()
-    compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True, mode="reduce-overhead")
+    compiled_model = torch.compile(base_model, dynamic=False, fullgraph=True)
     model: nn.Module = DDP(compiled_model, device_ids=[local_rank], broadcast_buffers=False) if distributed else compiled_model
 
     # Optimizer split:
