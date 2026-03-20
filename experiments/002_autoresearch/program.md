@@ -144,10 +144,16 @@ LOOP FOREVER:
    - Vocab size changes
    - Any creative ideas that might compress better or train more efficiently
 6. Edit `experiments/002_autoresearch/train_gpt.py` with the experimental idea.
-4. git commit the change.
-5. Run the experiment: `torchrun --standalone --nproc_per_node=$NUM_GPUS experiments/002_autoresearch/train_gpt.py > run.log 2>&1`
-6. Extract results: `grep "final_int8_zlib_roundtrip_exact\|Total submission size int8+zlib" run.log`
-7. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the stack trace and attempt a fix.
+4. git commit the change. Note the short commit hash — this is the **run ID**.
+5. Run the experiment, saving the log with the commit hash as filename:
+   ```bash
+   COMMIT=$(git rev-parse --short HEAD)
+   mkdir -p experiments/002_autoresearch/logs
+   torchrun --standalone --nproc_per_node=$NUM_GPUS experiments/002_autoresearch/train_gpt.py > experiments/002_autoresearch/logs/${COMMIT}.log 2>&1
+   ```
+6. Extract results: `grep "final_int8_zlib_roundtrip_exact\|Total submission size int8+zlib" experiments/002_autoresearch/logs/${COMMIT}.log`
+7. If the grep output is empty, the run crashed. Run `tail -n 50 experiments/002_autoresearch/logs/${COMMIT}.log` to read the stack trace and attempt a fix.
+   **IMPORTANT**: Never overwrite or delete run logs. Each `logs/<commit>.log` is a permanent record.
 8. Record the results in the TSV (do not commit results.tsv, leave it untracked by git)
 9. **Check artifact size**: If `final_model.int8.ptz` + code > 16MB (16,777,216 bytes), treat as a failure — discard.
 10. If post-quant val_bpb improved AND artifact is under 16MB, keep the commit and advance the branch.
