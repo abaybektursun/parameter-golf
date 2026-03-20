@@ -118,14 +118,17 @@ The experiment runs on a dedicated branch (e.g. `autoresearch/mar19`).
 LOOP FOREVER:
 
 1. Look at the git state: the current branch/commit we're on
-2. Think about what to try next. Consider:
+2. **Read `experiments/002_autoresearch/results.tsv`** to see ALL previous experiments and their outcomes.
+3. **Read `experiments/002_autoresearch/learnings.md`** if it exists — this contains accumulated insights from all experiments so far.
+4. Analyze patterns: what directions are working (keep pushing), what failed (avoid repeating), what's unexplored.
+5. Think about what to try next. Consider:
    - Architecture changes (depth, width, attention heads, MLP ratio, skip connections)
    - Optimizer changes (learning rates, momentum, warmup/warmdown schedules)
    - Quantization improvements (better int8 strategy, fp16 for certain tensors)
    - Sequence length (longer context = more info per token but fewer steps)
    - Vocab size changes
    - Any creative ideas that might compress better or train more efficiently
-3. Edit `experiments/002_autoresearch/train_gpt.py` with the experimental idea.
+6. Edit `experiments/002_autoresearch/train_gpt.py` with the experimental idea.
 4. git commit the change.
 5. Run the experiment: `torchrun --standalone --nproc_per_node=$NUM_GPUS experiments/002_autoresearch/train_gpt.py > run.log 2>&1`
 6. Extract results: `grep "final_int8_zlib_roundtrip_exact\|Total submission size int8+zlib" run.log`
@@ -135,6 +138,7 @@ LOOP FOREVER:
 10. If post-quant val_bpb improved AND artifact is under 16MB, keep the commit and advance the branch.
 11. **Push + backup**: `git push origin HEAD` and `aws s3 sync . s3://fuelos-autoresearch/latest/ --profile fuelos --exclude 'data/*' --exclude '.git/*' --exclude '__pycache__/*' --exclude '.venv/*'`
 12. If val_bpb is equal or worse, `git reset --hard` back to where you started.
+13. **Update learnings**: After every experiment (keep, discard, or crash), append insights to `experiments/002_autoresearch/learnings.md`. Record: what you tried, why, what happened, and what it tells you about future directions. Keep it concise — bullet points, not essays.
 
 **Timeout**: Each experiment should take ~10 minutes for training + overhead. If a run exceeds 15 minutes, kill it and treat as a failure.
 
