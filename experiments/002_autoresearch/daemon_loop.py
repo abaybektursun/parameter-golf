@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 import re
+import signal
 import subprocess
 import time
 from dataclasses import dataclass
@@ -15,6 +16,9 @@ RESULTS_FILE = ROOT / "experiments/002_autoresearch/results.tsv"
 LEARNINGS_FILE = ROOT / "experiments/002_autoresearch/learnings.md"
 RUN_LOG = ROOT / "run.log"
 ARTIFACT_LIMIT = 16_777_216
+RUN_TIMEOUT_SECONDS = 900
+KILL_GRACE_SECONDS = 15
+MAX_CRASH_RETRIES_PER_VALUE = 1
 
 
 @dataclass(frozen=True)
@@ -88,28 +92,42 @@ def set_value(spec: ParamSpec, value: float) -> None:
     TRAIN_FILE.write_text(new_text, encoding="utf-8")
 
 
-def already_tested(spec: ParamSpec, value: float) -> bool:
-    rendered = format_value(spec, value)
+def entry_matches_candidate(spec: ParamSpec, rendered: str, line: str, parts: list[str]) -> bool:
     key_lc = spec.key.lower()
+    desc_lc = parts[5].lower() if len(parts) > 5 else ""
+    if f"{key_lc}={rendered.lower()}" in desc_lc:
+        return True
+    # Backward compatibility with legacy free-form descriptions.
+    line_lc = line.lower()
+    return key_lc in line_lc and rendered in line
+
+
+def candidate_status_counts(spec: ParamSpec, value: float) -> tuple[int, int]:
+    rendered = format_value(spec, value)
+    measured = 0
+    crashes = 0
     for i, line in enumerate(RESULTS_FILE.read_text(encoding="utf-8").splitlines()):
         if i == 0 or not line.strip():
             continue
         parts = line.split("\t")
         if len(parts) < 6:
             continue
-        status = parts[4].strip()
-        # Allow retrying infrastructure crash entries; skip only successful or measured runs.
-        if status == "crash":
+        if not entry_matches_candidate(spec, rendered, line, parts):
             continue
+        status = parts[4].strip()
+        if status == "crash":
+            crashes += 1
+        else:
+            measured += 1
+    return measured, crashes
 
-        line_lc = line.lower()
-        desc_lc = parts[5].lower()
-        if f"{key_lc}={rendered.lower()}" in desc_lc:
-            return True
-        # Backward compatibility with legacy free-form descriptions.
-        if key_lc in line_lc and rendered in line:
-            return True
-    return False
+
+def already_tested(spec: ParamSpec, value: float) -> bool:
+    measured, crashes = candidate_status_counts(spec, value)
+    if measured > 0:
+        return True
+    # Allow one retry for likely infra noise, then move on to avoid infinite crash loops.
+    return crashes > MAX_CRASH_RETRIES_PER_VALUE
 
 
 def best_keep_post() -> float:
@@ -238,6 +256,47 @@ def revert_candidate(spec: ParamSpec, candidate: float, base: float) -> None:
     )
 
 
+def run_training(num_gpus: int) -> int:
+    cmd = [
+        "torchrun",
+        "--standalone",
+        f"--nproc_per_node={num_gpus}",
+        "experiments/002_autoresearch/train_gpt.py",
+    ]
+    with RUN_LOG.open("w", encoding="utf-8") as lf:
+        proc = subprocess.Popen(
+            cmd,
+            cwd=str(ROOT),
+            stdout=lf,
+            stderr=subprocess.STDOUT,
+            text=True,
+            start_new_session=True,
+        )
+        try:
+            return proc.wait(timeout=RUN_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            log(
+                f"run_timeout pid={proc.pid} timeout={RUN_TIMEOUT_SECONDS}s; "
+                "sending SIGTERM to process group"
+            )
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                return proc.wait(timeout=KILL_GRACE_SECONDS)
+            except subprocess.TimeoutExpired:
+                log(
+                    f"run_timeout_escalation pid={proc.pid}; "
+                    "sending SIGKILL to process group"
+                )
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                return proc.wait()
+
+
 def main() -> None:
     os.chdir(ROOT)
     ensure_files()
@@ -265,21 +324,7 @@ def main() -> None:
             )
 
             num_gpus = int(run(["bash", "-lc", "nvidia-smi -L | wc -l"], capture=True).stdout.strip())
-            with RUN_LOG.open("w", encoding="utf-8") as lf:
-                rc = subprocess.run(
-                    [
-                        "timeout",
-                        "930",
-                        "torchrun",
-                        "--standalone",
-                        f"--nproc_per_node={num_gpus}",
-                        "experiments/002_autoresearch/train_gpt.py",
-                    ],
-                    cwd=str(ROOT),
-                    stdout=lf,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                ).returncode
+            rc = run_training(num_gpus)
             log(f"run_exit_code={rc} commit={exp_commit}")
 
             pre, post, artifact, status = parse_run_metrics()
