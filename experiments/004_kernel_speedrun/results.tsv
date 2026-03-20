@@ -3,3 +3,4 @@ d506433	1436.53	0.0	-	-	keep	11-layer baseline speed benchmark on 1xA100 (ITERAT
 d9eb73d	1423.03	0.0	-	-	keep	restore torch._inductor.config max_autotune + max_autotune_gemm on 11-layer baseline (steady-state from step 80 before final eval)
 213c031	1412.20	0.0	-	-	keep	keep CastedLinear weights in bf16 (remove setup-time module.float from train/eval models; steady-state from step 80 before final eval)
 04a1904	1408.08	0.0	-	-	keep	skip no-op CastedLinear weight/bias dtype casts now that weights stay in bf16 (steady-state from step 80 before final eval)
+a45f3d9	1401.86	0.0	-	-	keep	keep low-dim control tensors in bf16 by removing restore_low_dim_params_to_fp32 (steady-state from step 80 before final eval)
