@@ -670,8 +670,13 @@ class RMSNorm(nn.Module):
 class CastedLinear(nn.Linear):
     # Keep weights in fp32 for optimizer/state quality, cast at matmul time for bf16 compute.
     def forward(self, x: Tensor) -> Tensor:
-        bias = self.bias.to(x.dtype) if self.bias is not None else None
-        return F.linear(x, self.weight.to(x.dtype), bias)
+        # Skip no-op dtype conversions when params already match activation dtype.
+        weight = self.weight if self.weight.dtype == x.dtype else self.weight.to(x.dtype)
+        if self.bias is None:
+            bias = None
+        else:
+            bias = self.bias if self.bias.dtype == x.dtype else self.bias.to(x.dtype)
+        return F.linear(x, weight, bias)
 
 
 def restore_low_dim_params_to_fp32(module: nn.Module) -> None:
