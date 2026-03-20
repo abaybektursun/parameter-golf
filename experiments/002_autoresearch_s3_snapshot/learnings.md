@@ -1,0 +1,78 @@
+# Autoresearch Learnings (mar19 loop)
+
+- `0ae7ebb` tested a narrow local move from `TIED_EMBED_LR=0.036` to `0.037` with the established kv2/seq2048/warmdown200 setup.
+- Result improved both pre-quant and post-quant BPB (`1.3512` / `1.3517`) while slightly reducing artifact size (`14,661,646` bytes), so this direction remains favorable.
+- The tied-embedding LR sweet spot appears to be tight around `0.036-0.037`; lower values (`0.035`, `0.03`) and higher jumps (`0.04+`) previously regressed.
+- `2c93097` pushed further to `TIED_EMBED_LR=0.0375` and improved post-quant BPB again (`1.35163043`) with artifact size still safe (`14,664,422` bytes).
+- Local trend suggests incremental gains as `TIED_EMBED_LR` is nudged upward from `0.036 -> 0.037 -> 0.0375`; next probes should stay close (e.g. `0.038`, `0.03725`) rather than large jumps.
+- `66f0afb` tested `TIED_EMBED_LR=0.038` and regressed (`post-quant 1.35201014`, artifact `14,671,388` bytes), so the optimum appears to sit below `0.038`.
+- Follow-up sweeps should focus just under `0.038` (for example `0.03725` or `0.03775`) instead of pushing higher.
+- `c02e90c` tested `TIED_EMBED_LR=0.03775` and delivered a strong gain (`pre/post 1.3506 / 1.35116127`) with artifact `14,670,866` bytes (well under 16MB).
+- Current local optimum moved upward from `0.0375` to `0.03775`; next steps should fine-sweep around this point (e.g. `0.0377`, `0.0378`, `0.03785`).
+- `94cbe29` was an aborted duplicate (`0.03800`) started during autoloop dry-run; no metric signal was collected, so treat as operational noise, not evidence.
+- `c8af5f9` reran `TIED_EMBED_LR=0.03800` and stayed worse than the current best (post-quant `1.3519` vs `1.3512` best), confirming values at/above 0.038 are outside the sweet spot despite acceptable artifact size (`14,670,756` bytes).
+- `2bafdc2` tested a fine upward nudge to `TIED_EMBED_LR=0.03780` from the 0.03775 baseline and produced a significant new best (pre/post `1.3498 / 1.35023699`) with artifact `14,671,316` bytes (<16MB).
+- The local optimum appears to continue slightly above 0.03775; next probes should stay very close (e.g. `0.03785`, `0.03790`) while watching for the known regression boundary near 0.03800.
+- `a60c900` pushed slightly higher to `TIED_EMBED_LR=0.03785` and regressed sharply (pre/post `1.3512 / 1.35170659`), indicating the gain at 0.03780 does not extend upward; keep future probes at or below 0.03780.
+- `6019b56` (`TIED_EMBED_LR=0.03782`) was aborted due daemon process supervision failure (parent loop exited before parsing/logging), so treat this as operational crash noise and rerun nearby values with the fixed daemon.
+- `2902ba6` (`TIED_EMBED_LR=0.03778`) was aborted during daemon supervisor replacement and should be treated as operational crash noise; rerun this value under the new stable supervisor.
+- `b9b6a67` (`TIED_EMBED_LR=0.03784`) was aborted during daemon migration to a setsid-supervised process and is recorded as operational crash noise.
+- 2026-03-20T04:01:19Z `74b0246`: tried `TIED_EMBED_LR=0.03776` from `0.03780` -> pre/post `1.3501/1.3505`, artifact `14665002`, status `discard`.
+- 2026-03-20T04:13:30Z `72c7104`: tried `TIED_EMBED_LR=0.03786` from `0.03780` -> pre/post `1.3495/1.3500`, artifact `14665182`, status `keep`.
+- 2026-03-20T04:26:01Z `efe0ce9`: tried `TIED_EMBED_LR=0.03794` from `0.03786` -> pre/post `1.3519/1.3524`, artifact `14666269`, status `discard`.
+- 2026-03-20T04:38:11Z `6728938`: tried `TIED_EMBED_LR=0.03796` from `0.03786` -> pre/post `1.3513/1.3519`, artifact `14667544`, status `discard`.
+- 2026-03-20T04:50:22Z `e0d6697`: tried `TIED_EMBED_LR=0.03798` from `0.03786` -> pre/post `1.3509/1.3513`, artifact `14666791`, status `discard`.
+- 2026-03-20T05:02:36Z `112c152`: tried `TIED_EMBED_LR=0.03774` from `0.03786` -> pre/post `1.3510/1.3514`, artifact `14667262`, status `discard`.
+- 2026-03-20T05:14:46Z `2c8091d`: tried `TIED_EMBED_LR=0.03772` from `0.03786` -> pre/post `1.3516/1.3521`, artifact `14667487`, status `discard`.
+- 2026-03-20T05:26:58Z `7775b55`: tried `TIED_EMBED_LR=0.03802` from `0.03786` -> pre/post `1.3519/1.3523`, artifact `14665513`, status `discard`.
+- 2026-03-20T05:39:09Z `223d5fe`: tried `TIED_EMBED_LR=0.03770` from `0.03786` -> pre/post `1.3518/1.3522`, artifact `14666456`, status `discard`.
+- 2026-03-20T05:51:21Z `b1b3d49`: tried `TIED_EMBED_LR=0.03804` from `0.03786` -> pre/post `1.3505/1.3510`, artifact `14666094`, status `discard`.
+- 2026-03-20T06:03:33Z `04ee772`: tried `TIED_EMBED_LR=0.03768` from `0.03786` -> pre/post `1.3530/1.3534`, artifact `14662317`, status `discard`.
+- 2026-03-20T06:05:52Z `3c50b66`: aborted `TIED_EMBED_LR=0.03806` run to migrate daemon from single-parameter tied_embed_lr sweep to multi-parameter search; recorded as operational crash noise.
+- 2026-03-20T06:18:14Z `617fb95`: tried `TIED_EMBED_LR=0.03788` from `0.03786` -> pre/post `1.3518/1.3522`, artifact `14667566`, status `discard`.
+- 2026-03-20T06:30:26Z `277d1af`: tried `TIED_EMBED_LR=0.03784` from `0.03786` -> pre/post `1.3495/1.3500`, artifact `14663387`, status `keep`.
+- 2026-03-20T06:42:50Z `d1a7e53`: tried `TIED_EMBED_LR=0.03782` from `0.03784` -> pre/post `1.3506/1.3510`, artifact `14664129`, status `discard`.
+- 2026-03-20T06:55:01Z `ab98547`: tried `MATRIX_LR=0.05100` from `0.05000` -> pre/post `1.3529/1.3534`, artifact `14710778`, status `discard`.
+- 2026-03-20T07:07:13Z `37e038c`: tried `MATRIX_LR=0.04900` from `0.05000` -> pre/post `1.3505/1.3510`, artifact `14621571`, status `discard`.
+- 2026-03-20T07:19:24Z `62caf39`: tried `SCALAR_LR=0.04100` from `0.04000` -> pre/post `1.3508/1.3512`, artifact `14667793`, status `discard`.
+- 2026-03-20T07:31:35Z `2df5a6b`: tried `SCALAR_LR=0.03900` from `0.04000` -> pre/post `1.3511/1.3515`, artifact `14663205`, status `discard`.
+- 2026-03-20T07:43:45Z `16559d6`: tried `WARMDOWN_ITERS=220` from `200` -> pre/post `1.3483/1.3488`, artifact `14632972`, status `keep`.
+- 2026-03-20T07:56:11Z `99ee5af`: tried `WARMDOWN_ITERS=240` from `220` -> pre/post `1.3491/1.3496`, artifact `14593542`, status `discard`.
+- 2026-03-20T08:08:23Z `2db8dca`: tried `QK_GAIN_INIT=1.55000` from `1.50000` -> pre/post `1.3488/1.3493`, artifact `14634410`, status `discard`.
+- 2026-03-20T08:20:36Z `8b6cc3c`: tried `QK_GAIN_INIT=1.45000` from `1.50000` -> pre/post `1.3497/1.3502`, artifact `14633682`, status `discard`.
+- 2026-03-20T08:32:46Z `15e3829`: tried `MATRIX_LR=0.05200` from `0.05000` -> pre/post `1.3531/1.3536`, artifact `14720167`, status `discard`.
+- 2026-03-20T08:44:57Z `0fed980`: tried `MATRIX_LR=0.04800` from `0.05000` -> pre/post `1.3510/1.3515`, artifact `14539156`, status `discard`.
+- 2026-03-20T08:57:07Z `3fd4c1b`: tried `SCALAR_LR=0.04200` from `0.04000` -> pre/post `1.3510/1.3515`, artifact `14629572`, status `discard`.
+- 2026-03-20T09:09:18Z `6487456`: tried `SCALAR_LR=0.03800` from `0.04000` -> pre/post `1.3500/1.3505`, artifact `14627976`, status `discard`.
+- 2026-03-20T09:21:28Z `838051a`: tried `WARMDOWN_ITERS=260` from `220` -> pre/post `1.3491/1.3496`, artifact `14556651`, status `discard`.
+- 2026-03-20T09:33:38Z `37b3419`: tried `WARMDOWN_ITERS=180` from `220` -> pre/post `1.3491/1.3496`, artifact `14698090`, status `discard`.
+- 2026-03-20T09:45:49Z `e3dfa11`: tried `QK_GAIN_INIT=1.60000` from `1.50000` -> pre/post `1.3484/1.3488`, artifact `14638014`, status `discard`.
+- 2026-03-20T09:51:05Z `11b7227`: tried `QK_GAIN_INIT=1.40000` from `1.50000` -> pre/post `0.0000/0.0000`, artifact `0`, status `crash`.
+- 2026-03-20T09:55:14Z `3b137ce`: tried `QK_GAIN_INIT=1.40000` from `1.50000` -> pre/post `0.0000/0.0000`, artifact `0`, status `crash`.
+- 2026-03-20T09:55:20Z `e786071`: tried `QK_GAIN_INIT=1.40000` from `1.50000` -> pre/post `0.0000/0.0000`, artifact `0`, status `crash`.
+- 2026-03-20T09:58:02Z 78f09c3: interrupted during daemon restart; logged as crash and baseline restoration required.
+- 2026-03-20T09:58:02Z 0f54bd4: interrupted while resolving unresolved QK chain; logged as crash and baseline restoration required.
+- 2026-03-20T09:59:02Z 25835e0: interrupted while shutting down daemon/supervisor; recorded as crash.
+- 2026-03-20T09:59:02Z 7a1b2d5: interrupted while shutting down daemon/supervisor; recorded as crash.
+- 2026-03-20T09:59:02Z 1ce6639: interrupted while shutting down daemon/supervisor; recorded as crash.
+- 2026-03-20T10:11:24Z `d84e43e`: tried `TIED_EMBED_LR=0.03790` from `0.03784` -> pre/post `1.3514/1.3519`, artifact `14631404`, status `discard`.
+- 2026-03-20T10:23:35Z `96aace0`: tried `TIED_EMBED_LR=0.03778` from `0.03784` -> pre/post `1.3491/1.3496`, artifact `14631461`, status `discard`.
+- 2026-03-20T10:35:45Z `1f37e62`: tried `MATRIX_LR=0.05300` from `0.05000` -> pre/post `1.3528/1.3533`, artifact `14761857`, status `discard`.
+- 2026-03-20T10:47:57Z `7f8aa65`: tried `MATRIX_LR=0.04700` from `0.05000` -> pre/post `1.3519/1.3524`, artifact `14487186`, status `discard`.
+- 2026-03-20T11:00:08Z `56425f5`: tried `SCALAR_LR=0.04300` from `0.04000` -> pre/post `1.3522/1.3527`, artifact `14633237`, status `discard`.
+- 2026-03-20T11:12:20Z `5e90ae8`: tried `SCALAR_LR=0.03700` from `0.04000` -> pre/post `1.3501/1.3506`, artifact `14623401`, status `discard`.
+- 2026-03-20T11:24:34Z `b3fc613`: tried `WARMDOWN_ITERS=280` from `220` -> pre/post `1.3499/1.3504`, artifact `14511876`, status `discard`.
+- 2026-03-20T11:36:44Z `70a7c6f`: tried `WARMDOWN_ITERS=160` from `220` -> pre/post `1.3502/1.3506`, artifact `14730363`, status `discard`.
+- 2026-03-20T11:48:55Z `e4bc38a`: tried `QK_GAIN_INIT=1.65000` from `1.50000` -> pre/post `1.3482/1.3487`, artifact `14632753`, status `keep`.
+- 2026-03-20T12:01:21Z `54540eb`: tried `QK_GAIN_INIT=1.70000` from `1.65000` -> pre/post `1.3475/1.3480`, artifact `14631461`, status `keep`.
+- 2026-03-20T12:13:47Z `e30e03a`: tried `QK_GAIN_INIT=1.75000` from `1.70000` -> pre/post `1.3491/1.3496`, artifact `14629068`, status `discard`.
+- 2026-03-20T12:25:56Z `ff64bd4`: tried `QK_GAIN_INIT=1.80000` from `1.70000` -> pre/post `1.3489/1.3494`, artifact `14635037`, status `discard`.
+- 2026-03-20T12:38:05Z `ea21ebf`: tried `QK_GAIN_INIT=1.85000` from `1.70000` -> pre/post `1.3481/1.3486`, artifact `14637949`, status `discard`.
+- 2026-03-20T12:50:16Z `baa080a`: tried `TIED_EMBED_LR=0.03792` from `0.03784` -> pre/post `1.3485/1.3490`, artifact `14635317`, status `discard`.
+- 2026-03-20T13:02:26Z `aa08efa`: tried `MATRIX_LR=0.05400` from `0.05000` -> pre/post `1.3512/1.3517`, artifact `14812949`, status `discard`.
+- 2026-03-20T13:14:37Z `ba2133a`: tried `MATRIX_LR=0.04600` from `0.05000` -> pre/post `1.3478/1.3483`, artifact `14442093`, status `discard`.
+- 2026-03-20T13:26:47Z `91cf354`: tried `SCALAR_LR=0.04400` from `0.04000` -> pre/post `1.3515/1.3519`, artifact `14642167`, status `discard`.
+- 2026-03-20T13:40:00Z `9a3a2ed`: tried `SCALAR_LR=0.03600` from `0.04000` -> pre/post `1.4051/1.4056`, artifact `13765429`, status `discard`.
+- 2026-03-20T13:52:23Z `dbf640e`: tried `WARMDOWN_ITERS=300` from `220` -> pre/post `1.3487/1.3492`, artifact `14481106`, status `discard`.
+- 2026-03-20T14:04:34Z `5fb79e5`: tried `WARMDOWN_ITERS=140` from `220` -> pre/post `1.3491/1.3496`, artifact `14771723`, status `discard`.
+- 2026-03-20T14:16:44Z `5632bee`: tried `QK_GAIN_INIT=1.90000` from `1.70000` -> pre/post `1.3485/1.3489`, artifact `14634992`, status `discard`.
