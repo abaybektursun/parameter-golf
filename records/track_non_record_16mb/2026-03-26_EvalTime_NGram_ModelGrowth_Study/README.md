@@ -8,39 +8,52 @@ This submission is not a leaderboard entry. It is a study of eval-time n-gram ca
 
 ## Results
 
-All runs use the PR #549 base model (~1.1194 BPB, 11L/512d, ~16MB artifact). Single GPU, stride=64, FineWeb val (62M tokens).
+All runs use the ValCalib GPTQ base model (1.1142 BPB leaderboard score, 11L/512d, ~16MB artifact, from `records/track_10min_16mb/2026-03-25_ValCalib_GPTQ_XSA_BigramHash3072/`). Single GPU, stride=64, FineWeb val (62M tokens).
 
 | Config | BPB | Eval-time state | Effective model | Time |
 |--------|----:|----------------:|----------------:|-----:|
-| Neural only (int6 quantized, leaderboard) | 1.1142 | 0 MB | 16 MB | 606s |
-| Neural only (float, pre-quant) | 1.1109 | 0 MB | 16 MB | 606s |
-| Pure n-gram, no neural model | 1.0615 | 192 MB | 192 MB | 535s |
+| Base LM (int6 quantized, leaderboard) | 1.1142 | 0 MB | 16 MB | 606s |
+| Base LM (float, pre-quant) | 1.1109 | 0 MB | 16 MB | 606s |
+| Pure n-gram, no base LM | 1.0615 | 192 MB | 192 MB | 535s |
 | Fixed 7-gram, alpha=0.40 | 0.5234 | 192 MB | 208 MB | 824s |
 | Backoff 2-7, alpha=0.40 | 0.4923 | 192 MB | 208 MB | 1079s |
 | Backoff 2-7, entropy-adaptive alpha | 0.6535 | 192 MB | 208 MB | 1114s |
 | **Backoff 2-9, order-adaptive entropy** | **0.3779** | **256 MB** | **272 MB** | **1234s** |
 
-The n-gram cache alone — with no neural model — beats the 27M-parameter transformer (1.06 vs 1.11 BPB). Combined, it cuts BPB by 66%.
+The n-gram cache alone — with no base LM — beats the trained model (1.06 vs 1.11 BPB). Combined, it cuts BPB by 66%.
 
 ### 8-GPU results with all-reduce sync (EXP-11)
 
-These results fit within the 600s competition eval budget. All-reduce sync cost: 1.6–2.0s total.
+All-reduce sync cost: 1.6–2.0s total. The first three configs fit within the 600s competition eval budget; α=0.80 exceeds it (939s).
 
 | Config | BPB | Time | Cache | Sync cost |
 |--------|----:|-----:|-------|-----------|
-| Neural only (8-GPU) | 1.1130 | 110s | None | — |
+| Base LM (8-GPU) | 1.1130 | 110s | None | — |
 | Backoff 2-7, α=0.40 | 0.4941 | 401s | Global (all-reduce) | 1.6s |
 | Backoff 2-9, α=0.40 | 0.4548 | 500s | Global (all-reduce) | 1.9s |
-| Backoff 2-7, **α=0.80** | **0.3942** | 939s | Global (all-reduce) | ~2.0s |
+| Backoff 2-7, α=0.80 | 0.3942 | 939s | Global (all-reduce) | ~2.0s |
 
-Alpha sweep (8-GPU, backoff 2-7): α=0.20 → 0.6180, α=0.40 → 0.4941, α=0.60 → 0.4263, α=0.80 → 0.3942. Higher alpha is monotonically better — the opposite of PR #727's finding. With a global cache, the n-gram is reliable enough that the model should defer to it more, not less.
+Alpha sweep (8-GPU, backoff 2-7): α=0.20 → 0.6180, α=0.40 → 0.4941, α=0.60 → 0.4263, α=0.80 → 0.3942. Higher alpha is monotonically better — the opposite of PR #727's finding (0.9674 BPB). With a global cache, the n-gram is reliable enough that the model should defer to it more, not less. The best alpha (0.80) exceeds the time budget, so in practice α=0.40–0.60 is the operating range.
+
+### Hash collision analysis
+
+We swept bucket counts from 1M to 256M expecting more buckets = fewer collisions = better accuracy. The opposite happened:
+
+| Buckets | BPB | Table memory |
+|--------:|----:|---------:|
+| 1M | 0.5793 | 48 MB |
+| 4M | 0.6535 | 192 MB |
+| 64M | 1.0629 | 3 GB |
+| 256M | 1.1123 | 12 GB |
+
+With 256M buckets, the table is so sparse that most n-grams have count=1 and fail the `min_count ≥ 2` threshold. Collisions at smaller table sizes merge similar n-grams together, artificially boosting counts above threshold. The hash table is functioning as a lossy count-min sketch, not an exact lookup. [Standard literature](https://en.wikipedia.org/wiki/Count%E2%80%93min_sketch) treats collisions as error to minimize. The BPB improvement depends on this interaction between hash density and the count threshold.
 
 ### What the n-gram cache is
 
-After each token is scored by the neural model, the token and its preceding context are inserted into hash tables. When a future token's context matches a previously seen n-gram, the cached frequency estimate is mixed with the neural prediction:
+After each token is scored by the base LM, the token and its preceding context are inserted into hash tables. When a future token's context matches a previously seen n-gram, the cached frequency estimate is mixed with the prediction:
 
 ```
-p_mix = (1 - alpha) * p_neural + alpha * p_ngram
+p_mix = (1 - alpha) * p_model + alpha * p_ngram
 ```
 
 The tables are built exclusively from already-scored tokens. No future tokens are accessed. Strict causality is preserved.
@@ -53,7 +66,7 @@ The tables are built exclusively from already-scored tokens. No future tokens ar
 | Orders 2-9 (8 orders) | 256 MB | 8 orders x 2 tables x 4M buckets x 4 bytes |
 | Orders 2-9, 64M buckets | 4,096 MB | 8 orders x 2 tables x 64M buckets x 4 bytes |
 
-None of this counts toward the 16MB artifact limit. The tables are empty at the start of evaluation and grow as tokens are scored. By the end of evaluation, the model that is doing the actual prediction is 16MB of neural weights plus 256MB of hash tables — **272 MB total**.
+None of this counts toward the 16MB artifact limit. The tables are empty at the start of evaluation and grow as tokens are scored. By the end of evaluation, the model that is doing the actual prediction is 16MB of weights plus 256MB of hash tables — **272 MB total**.
 
 ---
 
@@ -68,19 +81,21 @@ This creates a gap between what the competition measures and what matters in pra
 |  | Competition | Real-world inference |
 |--|-------------|---------------------|
 | **Corpus** | Fixed 62M tokens, scored in one pass | Streaming queries, each independent |
-| **Time budget** | 600 seconds for the entire corpus | < 100ms per token, real-time |
+| **Time budget** | 600 seconds for 62M tokens | < 200ms per request |
 | **Hardware** | 8x H100 80GB (640 GB VRAM) | Often 1 GPU, sometimes CPU |
 | **Model size** | 16 MB artifact; eval-time state unconstrained | Total model must fit deployment target |
 
 Each dimension matters:
 
-**1. Inference time.** The competition allows 600 seconds to score 62M tokens. The n-gram cache exploits this by doing O(K) hash lookups per token across K orders, plus table updates after scoring. On a single GPU, our best config takes 1234s — already over budget. On 8 GPUs with all-reduce sync (EXP-11, implemented but not yet deployed), we estimate ~130s. In real-world inference, you serve one token at a time with a latency budget measured in milliseconds. There is no batch of 62M tokens to amortize over.
+**1. Inference time.** The competition allows 600 seconds to score 62M tokens. The n-gram cache exploits this by doing O(K) hash lookups per token across K orders, plus table updates after scoring. On a single GPU, our best config takes 1234s. On 8 GPUs with all-reduce sync (EXP-11), backoff 2-7 takes 401s. In real-world inference, you serve one request at a time with a latency budget measured in milliseconds.
 
 **2. Inference hardware.** The competition provides 8x H100 with 640GB of combined VRAM. The hash tables (256 MB per GPU, synced via all-reduce) are negligible relative to this. In deployment, models run on single GPUs, edge devices, or CPUs. The 256MB of hash tables alone exceeds the 16MB artifact by 16x.
 
 **3. Competition setup.** The artifact limit constrains what you ship. But the n-gram cache ships nothing — it materializes at eval time from the scored tokens themselves. The 16MB limit was designed to constrain model capacity. The n-gram cache circumvents this by building an unbounded statistical model during evaluation, limited only by the number of hash buckets allocated.
 
-**4. Real-world evaluation.** In production, a language model scores individual prompts. Each query arrives independently. There is no corpus-level repetition to exploit. The n-gram cache's power comes entirely from within-corpus repetition — repeated documents, boilerplate, subword completion patterns, common phrases. This is **compression**, not **language modeling**. It works because FineWeb val has structure that repeats across its 62M tokens. On a stream of independent queries, the cache starts empty for each request and provides no benefit.
+**4. Real-world evaluation.** In production, a language model scores individual prompts. Each query arrives independently. There is no corpus-level repetition to exploit. The n-gram cache's power comes entirely from within-corpus repetition. On a stream of independent queries, the cache starts empty for each request and provides no benefit.
+
+**5. Inference speed.** The n-gram cache roughly doubles eval time (606s → 1,079s for backoff 2-7). The overhead is constant per token — it doesn't get worse as the cache fills — but a flat 2x slowdown matters when your latency budget is 50–200ms. You pay the per-token cost on every request, but you only get the BPB benefit after millions of tokens of contiguous corpus. On a 500-token prompt, you get the slowdown without the payoff.
 
 ### The core tension
 
@@ -88,7 +103,7 @@ The competition implicitly asks: **given N bytes of model, how well can you comp
 
 Eval-time caching answers a different question: **given N bytes of model plus unbounded eval-time memory, how well can you compress a specific fixed corpus?**
 
-These are different problems. The second has a much lower floor — any corpus with internal repetition can be compressed toward its empirical entropy by memorizing seen patterns. Our results show the gap is enormous: 1.11 BPB (neural only) vs 0.38 BPB (neural + cache). The cache contributes 2/3 of the total compression, yet costs zero artifact bytes.
+These are different problems. The second has a much lower floor — any corpus with internal repetition can be compressed toward its empirical entropy by memorizing seen patterns. Our results show the gap is enormous: 1.11 BPB (base LM only) vs 0.38 BPB (base LM + cache). The cache contributes 2/3 of the total compression, yet costs zero artifact bytes.
 
 ---
 
@@ -99,34 +114,40 @@ The competition already permits eval-time model growth through several mechanism
 | Technique | Eval-time state growth | Legality status |
 |-----------|----------------------:|----|
 | Sliding window eval (stride < seq_len) | KV cache, ~20 MB | Uncontroversial |
-| Test-time training (score-first TTT) | LoRA deltas, ~2 MB | Approved (PRs #549, #548) |
-| Per-document LoRA TTT (8 epochs) | LoRA deltas, ~2 MB | Approved (PR #596, 0.62 BPB) |
+| Test-time training (score-first TTT) | LoRA deltas, ~2 MB | Technique deemed legal (PRs #549, #548) |
+| Per-document LoRA TTT (8 epochs) | LoRA deltas, ~2 MB | Technique deemed legal (PR #596, 0.6430 BPB) |
 | N-gram cache (backoff 2-7) | Hash tables, 192 MB | Under review |
 | N-gram cache (backoff 2-9, 64M buckets) | Hash tables, 4 GB | Under review |
 
-TTT and LoRA adaptation are already approved. They also grow the model at eval time (LoRA weights are not in the artifact), though the growth is modest (~2 MB). The n-gram cache follows the same principle — build state from scored tokens — but at 100x the scale.
-
-The question is not whether causality is preserved (it is), but whether unbounded eval-time model growth is in the spirit of the 16MB constraint.
+TTT and LoRA adaptation follow the same principle as the n-gram cache — build state from scored tokens — though the growth is modest (~2 MB vs 192 MB). The question is not whether causality is preserved (it is), but whether unbounded eval-time model growth is in the spirit of the 16MB constraint.
 
 ---
 
-## Proposal: Cap eval-time state
+## Proposal
+
+### 1. Cap eval-time memory
 
 Define a total memory budget for eval-time state — for example, artifact + eval state <= 64 MB. This directly constrains the effective model size and aligns the competition with deployment realities. Simple to enforce: measure peak GPU memory allocation during eval.
 
 This extends the 16 MB artifact philosophy to cover the full model at inference time. A model that fits in 16 MB but needs 272 MB to run doesn't fit in 16 MB.
 
-This would not disqualify any currently approved techniques. KV caches (~20 MB), TTT LoRA deltas (~2 MB), and sliding window eval all fit comfortably within a 64 MB cap. It only constrains the techniques that grow the model by 10–250x during evaluation.
+### 2. Cap per-token overhead
+
+Require that eval-time techniques do not increase per-token latency by more than 50% over the base model forward pass on the same hardware. Not an absolute number — a ratio. Hardware-agnostic and easy to measure: run eval with and without the technique.
+
+Base LM on 8×H100 takes 110s. A 1.5× cap means 165s max. The n-gram cache takes 401s (3.6×). KV cache, TTT, LoRA are all within 1.5×. This also catches two-pass rescoring mechanically.
+
+Both proposals preserve everything currently approved. KV caches (~20 MB), TTT LoRA deltas (~2 MB), and sliding window eval all fit comfortably. They only constrain techniques that grow the model by 10–250x during evaluation.
 
 ---
 
 ## Surprising findings
 
-1. **Global cache vs partitioned cache:** On 8 GPUs with independent caches (as in PRs #727, #788), each GPU sees 1/8 of the tokens. This degrades BPB from ~0.49 (global) to ~0.97 (partitioned) — a 0.48 BPB gap from cache fragmentation alone. Our EXP-11 implementation solves this with all-reduce sync of hash table deltas across GPUs, giving every GPU the global cache state.
+1. **Global cache vs partitioned cache:** On 8 GPUs with independent caches (as in PRs #727 at 0.9674 BPB, #788 at 0.9059 BPB), each GPU sees 1/8 of the tokens. This degrades BPB from ~0.49 (global) to ~0.91–0.97 (partitioned). Our EXP-11 implementation solves this with all-reduce sync of hash table deltas across GPUs.
 
-2. **Entropy-adaptive alpha hurts with strong caches:** The sigmoid-gated alpha from PR #727 (which reduces n-gram weight when the neural model is confident) gives 0.65 BPB — 0.16 BPB *worse* than fixed alpha=0.40 (0.49 BPB). With a global cache, the n-gram is often more reliable than the neural model, and the entropy gate is too conservative.
+2. **Entropy-adaptive alpha hurts with strong caches:** The sigmoid-gated alpha from PR #727 gives 0.65 BPB — 0.16 BPB *worse* than fixed alpha=0.40 (0.49 BPB). With a global cache, the n-gram is often more reliable than the base LM, and the entropy gate is too conservative.
 
-3. **N-gram alone beats the neural model:** Pure n-gram (no neural model at all) achieves 1.06 BPB vs 1.11 BPB for the neural model. A zero-parameter frequency table built from scored tokens predicts FineWeb better than a 27M-parameter transformer.
+3. **N-gram alone beats the base LM:** Pure n-gram (no base LM at all) achieves 1.06 BPB vs 1.11 BPB for the trained model. A zero-parameter frequency table built from scored tokens predicts FineWeb better than the trained model.
 
 4. **Three compression phenomena:** The n-gram cache captures (a) deterministic BPE subword completion (orders 2-4), (b) common English collocations (orders 4-6), and (c) verbatim document repetition (orders 6+). Only (c) is corpus-specific.
 
