@@ -110,19 +110,13 @@ The question is not whether causality is preserved (it is), but whether unbounde
 
 ---
 
-## Proposal
+## Proposal: Cap eval-time state
 
-We suggest the competition consider one or more of the following clarifications:
+Define a total memory budget for eval-time state — for example, artifact + eval state <= 64 MB. This directly constrains the effective model size and aligns the competition with deployment realities. Simple to enforce: measure peak GPU memory allocation during eval.
 
-**Option A: Cap eval-time state.** Define a total memory budget for eval-time state (e.g., artifact + eval-time state <= 32 MB or 64 MB). This directly constrains the effective model size and aligns the competition with deployment realities.
+This extends the 16 MB artifact philosophy to cover the full model at inference time. A model that fits in 16 MB but needs 272 MB to run doesn't fit in 16 MB.
 
-**Option B: Per-token compute budget.** Instead of a wall-clock limit for the entire corpus, define a per-token compute budget (e.g., max FLOPs per token). This prevents techniques that amortize expensive corpus-level operations.
-
-**Option C: Evaluate on independent documents.** Score each document independently with a fresh model state (no carry-over between documents). This eliminates cross-document repetition exploitation while still allowing within-document TTT and caching.
-
-**Option D: Accept eval-time growth, but measure it.** Keep current rules but require submissions to report their peak eval-time state size alongside val_bpb. This makes the tradeoff transparent: "0.38 BPB at 272 MB effective model" tells a different story than "0.38 BPB at 16 MB."
-
-We believe **Option A** or **Option D** would be the simplest to implement and the least disruptive to existing submissions.
+This would not disqualify any currently approved techniques. KV caches (~20 MB), TTT LoRA deltas (~2 MB), and sliding window eval all fit comfortably within a 64 MB cap. It only constrains the techniques that grow the model by 10–250x during evaluation.
 
 ---
 
