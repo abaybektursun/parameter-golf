@@ -135,7 +135,7 @@ TTT and LoRA adaptation follow the same principle as the n-gram cache — build 
 
 ### 0. Enforce causality explicitly
 
-The competition assumes causality but does not enforce it. The FAQ says you can only train on tokens "you've already evaluated your model on," but the eval harness does not verify this. Two-pass rescoring (PRs #846, #853, #868, #870, #881, #888) violates causality: pass 2 rescores token #100 using a cache built from tokens #101 through #62M. This should be an explicit, enforced constraint, not an honor-system rule.
+The competition assumes causality but the rules don't state it as an explicit requirement. The FAQ says you can only train on tokens "you've already evaluated your model on," but this is guidance, not a formal rule. Two-pass rescoring (PRs #846, #853, #868, #870, #881, #888) violates causality: pass 2 rescores token #100 using a cache built from tokens #101 through #62M. Causality should be a stated rule, not an implicit assumption.
 
 ### 1. Verify the distribution sums to 1
 
