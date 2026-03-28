@@ -2,7 +2,7 @@
 
 **val_bpb: 1.1147** (3-seed mean, std 0.0004) | **~15.91 MB** | 8×H100 SXM, 600s | No TTT
 
-**This submission uses only AI-generated calibration data.** After training, the model autoregressively generates its own calibration tokens (64 seqs × 2048 tokens, temp=0.8). No val data and no train data are accessed during quantization.
+**This submission uses only AR (autoregressive) self-generated calibration data.** After training, the model autoregressively generates its own calibration tokens (64 seqs × 2048 tokens, temp=0.8). No val data and no train data are accessed during quantization.
 
 **Improvement over current SOTA ([PR #549](https://github.com/openai/parameter-golf/pull/549), 1.1194 BPB):** −0.0078 nats (−0.0046 BPB)
 
