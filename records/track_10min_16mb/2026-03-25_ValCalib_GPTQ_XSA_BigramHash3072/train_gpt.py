@@ -1078,6 +1078,65 @@ def eval_val_sliding(
     return val_loss, bits_per_token * tokens_per_byte
 
 
+def generate_autoregressive_calib(model, device, num_seqs=64, seq_len=2048,
+                                   vocab_size=1024, temperature=0.8, batch_size=8, seed=42):
+    """Generate sequences autoregressively from the model for GPTQ calibration.
+    No external data accessed — fully self-contained."""
+    model.eval()
+    rng = torch.Generator(device=device)
+    rng.manual_seed(seed)
+    all_tokens = []
+    with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+        for batch_start in range(0, num_seqs, batch_size):
+            bs = min(batch_size, num_seqs - batch_start)
+            tokens = torch.randint(0, vocab_size, (bs, 1), device=device, generator=rng)
+            for pos in range(seq_len - 1):
+                logits = model.forward_logits(tokens)
+                next_logit = logits[:, -1, :]
+                probs = torch.softmax(next_logit / temperature, dim=-1)
+                next_tok = torch.multinomial(probs, 1, generator=rng)
+                tokens = torch.cat([tokens, next_tok], dim=1)
+            for i in range(bs):
+                all_tokens.append(tokens[i:i+1])
+    return all_tokens
+
+
+def collect_hessians_from_tokens(hessian_model, token_seqs, device):
+    """Collect H = X^T X from pre-generated token sequences."""
+    hessians = {}
+    hooks = []
+    for name, module in hessian_model.named_modules():
+        if isinstance(module, CastedLinear):
+            param_name = name + ".weight"
+            cols = module.weight.shape[1]
+            hessians[param_name] = torch.zeros(cols, cols, dtype=torch.float32, device='cpu')
+            def make_hook(pname):
+                def hook_fn(module, input, output):
+                    x = input[0].detach().float()
+                    if x.ndim == 3:
+                        x = x.reshape(-1, x.shape[-1])
+                    hessians[pname] += (x.T @ x).cpu()
+                return hook_fn
+            h = module.register_forward_hook(make_hook(param_name))
+            hooks.append(h)
+    hessian_model.eval()
+    with torch.inference_mode(), torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+        for seq in token_seqs:
+            x = seq[:, :-1].to(device)
+            y = seq[:, 1:].to(device)
+            hessian_model(x, y)
+    for h in hooks:
+        h.remove()
+    num_batches = len(token_seqs)
+    for name in hessians:
+        H = hessians[name]
+        H /= num_batches
+        damp = 0.01 * torch.diag(H).mean().clamp_min(1e-6)
+        H += damp * torch.eye(H.shape[0])
+        hessians[name] = H
+    return hessians
+
+
 # --- GPTQ-lite int6 quantization ---
 
 def _classify_param(name: str) -> str:
@@ -1917,11 +1976,19 @@ def main() -> None:
         {k: v.to(device) for k, v in unbanked_sd.items() if k in hessian_model.state_dict()},
         strict=False,
     )
-    log0(f"gptq:calibrating with {args.gptq_calib_batches} batches (using val data)...")
-    calib_loader = DistributedTokenLoader(args.val_files, rank, world_size, device)
-    hessians = collect_hessians(hessian_model, calib_loader, args, device, grad_accum_steps,
-                                num_batches=args.gptq_calib_batches)
-    log0(f"gptq:collected hessians for {len(hessians)} layers")
+    # Autoregressive self-generated calibration (no external data)
+    log0("gptq:generating autoregressive calibration data (64 seqs x 2048 tokens, temp=0.8)...")
+    base_model.load_state_dict(export_sd, strict=False)
+    t_gen = time.perf_counter()
+    ar_tokens = generate_autoregressive_calib(
+        base_model, device, num_seqs=64, seq_len=args.train_seq_len,
+        vocab_size=args.vocab_size, temperature=0.8, batch_size=8, seed=args.seed,
+    )
+    log0(f"gptq:generated {len(ar_tokens)} sequences in {time.perf_counter()-t_gen:.1f}s")
+    log0("gptq:collecting hessians from autoregressive data...")
+    hessians = collect_hessians_from_tokens(hessian_model, ar_tokens, device)
+    log0(f"gptq:collected hessians for {len(hessians)} layers (AR self-gen)")
+    del ar_tokens
     del hessian_model
     torch.cuda.empty_cache()
     quant_result, quant_meta = mixed_quantize_int6(unbanked_sd, {"mlp", "attn"}, hessians=hessians)
