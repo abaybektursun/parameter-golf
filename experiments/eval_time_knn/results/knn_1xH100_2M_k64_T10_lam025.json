@@ -1,0 +1,13 @@
+{
+  "model_bpb": 2.166642065302633,
+  "knn_bpb": 2.0942363140461695,
+  "improvement_bpb": 0.07240575125646354,
+  "datastore_vectors": 2000000,
+  "datastore_mb": 2048.0,
+  "k": 64,
+  "temperature": 10.0,
+  "lambda": 0.25,
+  "distribution_valid": true,
+  "causality": "score-first",
+  "eval_time_s": 2563.6101145744324
+}

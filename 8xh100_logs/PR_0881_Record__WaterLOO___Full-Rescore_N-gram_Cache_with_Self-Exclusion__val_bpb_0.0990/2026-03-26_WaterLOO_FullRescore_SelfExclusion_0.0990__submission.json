@@ -1,0 +1,24 @@
+{
+  "author": "Simon Marcus",
+  "github_id": "simon-marcus",
+  "name": "WaterLOO: Full-Rescore N-gram Cache with Self-Exclusion",
+  "blurb": "Two-pass full-rescore n-gram eval with leave-one-out self-exclusion. Pass 1 stores per-token neural probabilities and entropies, the complete order-2-12 cache is built vectorially, and Pass 2 rescoring subtracts each token's own direct cache contribution before matching.",
+  "date": "2026-03-26",
+  "val_loss": 0.16713198,
+  "val_bpb": 0.09898524,
+  "val_loss_std": 0.00004,
+  "val_bpb_std": 0.00002,
+  "seeds": [1337, 42, 2025],
+  "seed_results": {
+    "1337": {"val_loss": 0.16710306, "val_bpb": 0.09896811},
+    "42":   {"val_loss": 0.16710815, "val_bpb": 0.09897112},
+    "2025": {"val_loss": 0.16718473, "val_bpb": 0.09901648}
+  },
+  "pre_quant_val_bpb": 1.14047,
+  "step_stop": 6931,
+  "wallclock_seconds": 600.0,
+  "eval_time_seconds": 144.77,
+  "bytes_total": 15873808,
+  "bytes_code": 115396,
+  "bytes_model": 15758412
+}

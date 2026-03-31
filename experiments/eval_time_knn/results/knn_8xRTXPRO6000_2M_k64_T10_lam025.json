@@ -1,0 +1,16 @@
+{
+  "model_bpb": 2.1666396754000656,
+  "knn_bpb": 2.097029514222409,
+  "improvement_bpb": 0.0696101611776565,
+  "gpus": 8,
+  "store_per_gpu": 2000000,
+  "store_per_gpu_mb": 2048.0,
+  "total_store_vectors": 16000000,
+  "total_store_mb": 16384.0,
+  "k": 64,
+  "temperature": 10.0,
+  "lambda": 0.25,
+  "distribution_valid": true,
+  "causality": "score-first",
+  "eval_time_s": 391.06038331985474
+}

@@ -1,0 +1,10 @@
+{
+  "name": "11L + Score-Every-Epoch LoRA TTT 5ep (3-seed mean val_bpb=0.8173)",
+  "author": "mn.hoang",
+  "github_id": "minh-stakc",
+  "date": "2026-03-24T00:00:00Z",
+  "val_loss": 1.38,
+  "val_bpb": 0.8173,
+  "bytes_total": 17132081,
+  "blurb": "Score-every-epoch multi-scale LoRA TTT (5 epochs, LM rank-16, per-layer LR, bias tuning, T=0.98) on PR #414 base. 3-seed mean: 0.8173 BPB (std 0.0023). Seeds: 0.8186/0.8187/0.8146."
+}

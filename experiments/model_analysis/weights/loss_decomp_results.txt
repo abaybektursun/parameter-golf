@@ -1,0 +1,63 @@
+Val tokens: 62021632, sequences: 30284
+  batch 0/30284, running BPB: 1.2292
+  batch 800/30284, running BPB: 1.1400
+  batch 1600/30284, running BPB: 1.1402
+  batch 2400/30284, running BPB: 1.1351
+  batch 3200/30284, running BPB: 1.1405
+  batch 4000/30284, running BPB: 1.1403
+  batch 4800/30284, running BPB: 1.1403
+  batch 5600/30284, running BPB: 1.1405
+  batch 6400/30284, running BPB: 1.1414
+  batch 7200/30284, running BPB: 1.1403
+  batch 8000/30284, running BPB: 1.1395
+  batch 8800/30284, running BPB: 1.1388
+  batch 9600/30284, running BPB: 1.1375
+  batch 10400/30284, running BPB: 1.1358
+  batch 11200/30284, running BPB: 1.1342
+  batch 12000/30284, running BPB: 1.1339
+  batch 12800/30284, running BPB: 1.1339
+  batch 13600/30284, running BPB: 1.1333
+  batch 14400/30284, running BPB: 1.1333
+  batch 15200/30284, running BPB: 1.1337
+  batch 16000/30284, running BPB: 1.1347
+  batch 16800/30284, running BPB: 1.1358
+  batch 17600/30284, running BPB: 1.1365
+  batch 18400/30284, running BPB: 1.1356
+  batch 19200/30284, running BPB: 1.1353
+  batch 20000/30284, running BPB: 1.1344
+  batch 20800/30284, running BPB: 1.1333
+  batch 21600/30284, running BPB: 1.1322
+  batch 22400/30284, running BPB: 1.1326
+  batch 23200/30284, running BPB: 1.1332
+  batch 24000/30284, running BPB: 1.1339
+  batch 24800/30284, running BPB: 1.1346
+  batch 25600/30284, running BPB: 1.1352
+  batch 26400/30284, running BPB: 1.1354
+  batch 27200/30284, running BPB: 1.1360
+  batch 28000/30284, running BPB: 1.1355
+  batch 28800/30284, running BPB: 1.1351
+  batch 29600/30284, running BPB: 1.1346
+
+======================================================================
+LOSS DECOMPOSITION REPORT
+======================================================================
+
+Overall BPB: 1.134272 (total_bytes: 151080363)
+Mean prediction entropy: 1.8981 nats
+
+Bucket                           BPB    % Bytes     % Loss
+-------------------------------------------------------
+freq_tail                     1.0986      57.1%      55.3%
+freq_top100                   1.1817      42.9%      44.7%
+pos_first100                  1.3323       4.9%       5.7%
+pos_later                     1.1241      95.1%      94.3%
+type_number                   2.0928       3.2%       5.9%
+type_other                    1.2013       1.0%       1.1%
+type_punct                    2.3770       0.9%       1.8%
+type_whitespace               3.0120       0.5%       1.3%
+type_word                     1.0798      94.4%      89.9%
+
+======================================================================
+KEY INSIGHT: Compare % Bytes vs % Loss.
+If a bucket has 5% of bytes but 30% of loss, focus there.
+======================================================================

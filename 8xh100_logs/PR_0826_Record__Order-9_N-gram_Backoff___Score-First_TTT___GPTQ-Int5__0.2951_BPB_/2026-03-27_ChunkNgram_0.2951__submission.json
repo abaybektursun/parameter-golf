@@ -1,0 +1,24 @@
+{
+  "author": "himanshudongre",
+  "github_id": "himanshudongre",
+  "name": "Order-9 N-gram Backoff + Score-First LoRA TTT + LeakyReLU(0.9)\u00b2 + GPTQ-Int5",
+  "blurb": "11L 512d GQA 8/4, MLP 3.0x, XSA-4, LeakyReLU(0.9)\u00b2, BigramHash(4096), SmearGate, U-Net skips, GPTQ int5. Score-first LoRA TTT (AdamW, rank-8). Order-9 chunk-based N-gram eval cache with entropy-adaptive alpha and per-order multipliers. Mean of 3 seeds: val_bpb 0.29509 (std 0.00014). Training 525s on 8xH100 SXM, eval ~430s.",
+  "date": "2026-03-27",
+  "val_loss": 0.49825,
+  "val_bpb": 0.29509,
+  "val_loss_std": 0.00024,
+  "val_bpb_std": 0.00014,
+  "seeds": [1337, 42, 2024],
+  "seed_results": {
+    "1337": {"val_loss": 0.49842277, "val_bpb": 0.29519404},
+    "42": {"val_loss": 0.49797233, "val_bpb": 0.29492726},
+    "2024": {"val_loss": 0.49835948, "val_bpb": 0.29515655}
+  },
+  "pre_quant_val_bpb": 1.1455,
+  "ttt_val_bpb": 1.1488,
+  "step_stop": 6122,
+  "wallclock_seconds": 525.0,
+  "eval_time_seconds": 430.0,
+  "bytes_total": 13398521,
+  "bytes_code": 180881
+}

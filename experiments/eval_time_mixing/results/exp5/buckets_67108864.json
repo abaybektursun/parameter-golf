@@ -1,0 +1,14 @@
+{
+  "experiment": "buckets_67108864",
+  "val_loss": 1.7947140841222706,
+  "val_bpb": 1.0629335853008917,
+  "eval_time_s": 1186.7279260158539,
+  "config": {
+    "use_ngram": true,
+    "ngram_max_order": 7,
+    "ngram_backoff": true,
+    "entropy_adaptive": true,
+    "ngram_buckets": 67108864
+  },
+  "diagnostics": {}
+}

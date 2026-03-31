@@ -1,0 +1,16 @@
+{
+  "track": "10min_16mb",
+  "date": "2026-03-26",
+  "name": "Record: 0.1582 BPB — Learned Mixer Head + No TTT + Matrix LR 0.03",
+  "author": "bigbag",
+  "github": "bigbag",
+  "seed_results": {
+    "42": {"val_loss": 0.265964, "val_bpb": 0.157519, "artifact_bytes": 15758015},
+    "1337": {"val_loss": 0.267544, "val_bpb": 0.158454, "artifact_bytes": 15723194},
+    "2024": {"val_loss": 0.268686, "val_bpb": 0.159131, "artifact_bytes": 15724500}
+  },
+  "mean_val_loss": 0.267398,
+  "mean_val_bpb": 0.158368,
+  "std_val_bpb": 0.0008,
+  "code_bytes": 92093
+}

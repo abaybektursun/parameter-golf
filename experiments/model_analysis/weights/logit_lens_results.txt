@@ -1,0 +1,32 @@
+Logit lens on 64 sequences of length 2048
+  16/64 done
+  32/64 done
+  48/64 done
+  64/64 done
+
+======================================================================
+LOGIT LENS REPORT
+======================================================================
+
+Layer         Loss (nats)        BPB  Top-1 Acc  Delta BPB
+--------------------------------------------------------
+embed             18.3498    26.4732      0.5%           
+layer_0            7.3965    10.6708      7.7%   -15.8023
+layer_1            6.4545     9.3119     10.2%    -1.3589
+layer_2            5.7291     8.2653     15.3%    -1.0466
+layer_3            7.0679    10.1968     12.7%    +1.9315
+layer_4            8.2311    11.8749     11.3%    +1.6781
+layer_5            8.7544    12.6299     10.9%    +0.7550
+layer_6            7.4501    10.7482     14.0%    -1.8817
+layer_7            4.4315     6.3933     24.6%    -4.3549
+layer_8            3.1392     4.5289     35.5%    -1.8644
+layer_9            2.2375     3.2280     49.7%    -1.3009
+layer_10           1.9088     2.7539     54.7%    -0.4741
+final              1.9088     2.7539     54.7%    +0.0000
+
+======================================================================
+INTERPRETATION:
+- Large BPB drop at a layer = that layer contributes significant signal
+- Small drop = layer may be underutilized (candidate for narrowing)
+- Final layers doing most work = typical for deep transformers
+======================================================================

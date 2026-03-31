@@ -1,0 +1,138 @@
+/root/parameter-golf/train_gpt_mlp35_mixed.py:663: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:206.)
+  return torch.from_numpy(_get_shard_memmap(file))
+Evaluating baseline (full precision bfloat16)...
+Baseline BPB: 1.150966  (90.9s)
+
+--- Per-matrix sensitivity (one matrix quantized at a time) ---
+  L 0 Q          BPB=1.150977  Δ=+0.000011
+  L 0 K          BPB=1.150958  Δ=-0.000008
+  L 0 V          BPB=1.150934  Δ=-0.000032
+  L 0 Out        BPB=1.150976  Δ=+0.000010
+  L 0 MLP_up     BPB=1.150964  Δ=-0.000002
+  L 0 MLP_down   BPB=1.151081  Δ=+0.000115
+  L 1 Q          BPB=1.150953  Δ=-0.000013
+  L 1 K          BPB=1.150961  Δ=-0.000005
+  L 1 V          BPB=1.150987  Δ=+0.000021
+  L 1 Out        BPB=1.150989  Δ=+0.000023
+  L 1 MLP_up     BPB=1.150984  Δ=+0.000018
+  L 1 MLP_down   BPB=1.151019  Δ=+0.000053
+  L 2 Q          BPB=1.150965  Δ=-0.000001
+  L 2 K          BPB=1.150978  Δ=+0.000012
+  L 2 V          BPB=1.150963  Δ=-0.000003
+  L 2 Out        BPB=1.151007  Δ=+0.000041
+  L 2 MLP_up     BPB=1.151036  Δ=+0.000070
+  L 2 MLP_down   BPB=1.150928  Δ=-0.000038
+  L 3 Q          BPB=1.150995  Δ=+0.000029
+  L 3 K          BPB=1.150970  Δ=+0.000004
+  L 3 V          BPB=1.151037  Δ=+0.000071
+  L 3 Out        BPB=1.151005  Δ=+0.000039
+  L 3 MLP_up     BPB=1.151012  Δ=+0.000046
+  L 3 MLP_down   BPB=1.151087  Δ=+0.000121
+  L 4 Q          BPB=1.150975  Δ=+0.000009
+  L 4 K          BPB=1.150972  Δ=+0.000006
+  L 4 V          BPB=1.151004  Δ=+0.000038
+  L 4 Out        BPB=1.150984  Δ=+0.000018
+  L 4 MLP_up     BPB=1.151007  Δ=+0.000041
+  L 4 MLP_down   BPB=1.151053  Δ=+0.000087
+  L 5 Q          BPB=1.150983  Δ=+0.000017
+  L 5 K          BPB=1.150979  Δ=+0.000013
+  L 5 V          BPB=1.150974  Δ=+0.000008
+  L 5 Out        BPB=1.151005  Δ=+0.000039
+  L 5 MLP_up     BPB=1.151002  Δ=+0.000036
+  L 5 MLP_down   BPB=1.151043  Δ=+0.000077
+  L 6 Q          BPB=1.150978  Δ=+0.000012
+  L 6 K          BPB=1.150975  Δ=+0.000009
+  L 6 V          BPB=1.150975  Δ=+0.000009
+  L 6 Out        BPB=1.150966  Δ=-0.000000
+  L 6 MLP_up     BPB=1.151005  Δ=+0.000039
+  L 6 MLP_down   BPB=1.151102  Δ=+0.000136
+  L 7 Q          BPB=1.150957  Δ=-0.000008
+  L 7 K          BPB=1.150971  Δ=+0.000005
+  L 7 V          BPB=1.151008  Δ=+0.000042
+  L 7 Out        BPB=1.150977  Δ=+0.000011
+  L 7 MLP_up     BPB=1.151010  Δ=+0.000044
+  L 7 MLP_down   BPB=1.151166  Δ=+0.000201
+  L 8 Q          BPB=1.150966  Δ=-0.000000
+  L 8 K          BPB=1.150979  Δ=+0.000013
+  L 8 V          BPB=1.150976  Δ=+0.000010
+  L 8 Out        BPB=1.150975  Δ=+0.000010
+  L 8 MLP_up     BPB=1.151037  Δ=+0.000071
+  L 8 MLP_down   BPB=1.151045  Δ=+0.000080
+  L 9 Q          BPB=1.150976  Δ=+0.000010
+  L 9 K          BPB=1.150971  Δ=+0.000005
+  L 9 V          BPB=1.150958  Δ=-0.000008
+  L 9 Out        BPB=1.151000  Δ=+0.000034
+  L 9 MLP_up     BPB=1.151050  Δ=+0.000084
+  L 9 MLP_down   BPB=1.151235  Δ=+0.000269
+  L10 Q          BPB=1.150971  Δ=+0.000005
+  L10 K          BPB=1.150995  Δ=+0.000029
+  L10 V          BPB=1.151024  Δ=+0.000058
+  L10 Out        BPB=1.150971  Δ=+0.000005
+  L10 MLP_up     BPB=1.150912  Δ=-0.000053
+  L10 MLP_down   BPB=1.151166  Δ=+0.000200
+
+--- Per-layer aggregate (all 6 matrices of one layer quantized) ---
+  Layer  0: BPB=1.151059  Δ=+0.000093
+  Layer  1: BPB=1.151060  Δ=+0.000094
+  Layer  2: BPB=1.151029  Δ=+0.000064
+  Layer  3: BPB=1.151265  Δ=+0.000299
+  Layer  4: BPB=1.151150  Δ=+0.000184
+  Layer  5: BPB=1.151149  Δ=+0.000183
+  Layer  6: BPB=1.151168  Δ=+0.000202
+  Layer  7: BPB=1.151248  Δ=+0.000282
+  Layer  8: BPB=1.151142  Δ=+0.000176
+  Layer  9: BPB=1.151369  Δ=+0.000403
+  Layer 10: BPB=1.151195  Δ=+0.000229
+
+--- Full model (all layers quantized) ---
+  Full model int6: BPB=1.153262  Δ=+0.002296
+
+==========================================================================================
+QUANTIZATION SENSITIVITY ANALYSIS — PER-MATRIX BPB DELTA
+==========================================================================================
+
+Baseline BPB (full precision bfloat16): 1.150966
+Full model int6 (no GPTQ): BPB=1.153262  Δ=+0.002296
+
+Layer              Q           K           V         Out      MLP_up    MLP_down         ALL
+--------------------------------------------------------------------------------------------
+L0         +0.000011   -0.000008   -0.000032   +0.000010   -0.000002   +0.000115   +0.000093
+L1         -0.000013   -0.000005   +0.000021   +0.000023   +0.000018   +0.000053   +0.000094
+L2         -0.000001   +0.000012   -0.000003   +0.000041   +0.000070   -0.000038   +0.000064
+L3         +0.000029   +0.000004   +0.000071   +0.000039   +0.000046   +0.000121   +0.000299
+L4         +0.000009   +0.000006   +0.000038   +0.000018   +0.000041   +0.000087   +0.000184
+L5         +0.000017   +0.000013   +0.000008   +0.000039   +0.000036   +0.000077   +0.000183
+L6         +0.000012   +0.000009   +0.000009   -0.000000   +0.000039   +0.000136   +0.000202
+L7         -0.000008   +0.000005   +0.000042   +0.000011   +0.000044   +0.000201   +0.000282
+L8         -0.000000   +0.000013   +0.000010   +0.000010   +0.000071   +0.000080   +0.000176
+L9         +0.000010   +0.000005   -0.000008   +0.000034   +0.000084   +0.000269   +0.000403
+L10        +0.000005   +0.000029   +0.000058   +0.000005   -0.000053   +0.000200   +0.000229
+
+Sum iso.:   +0.000070   +0.000083   +0.000216   +0.000230   +0.000394   +0.001302
+
+Top 10 most sensitive matrices:
+  L9 MLP_down    Δ=+0.000269
+  L7 MLP_down    Δ=+0.000201
+  L10 MLP_down    Δ=+0.000200
+  L6 MLP_down    Δ=+0.000136
+  L3 MLP_down    Δ=+0.000121
+  L0 MLP_down    Δ=+0.000115
+  L4 MLP_down    Δ=+0.000087
+  L9 MLP_up      Δ=+0.000084
+  L8 MLP_down    Δ=+0.000080
+  L5 MLP_down    Δ=+0.000077
+
+Top 10 least sensitive matrices:
+  L0 MLP_up      Δ=-0.000002
+  L2 V           Δ=-0.000003
+  L1 K           Δ=-0.000005
+  L9 V           Δ=-0.000008
+  L0 K           Δ=-0.000008
+  L7 Q           Δ=-0.000008
+  L1 Q           Δ=-0.000013
+  L0 V           Δ=-0.000032
+  L2 MLP_down    Δ=-0.000038
+  L10 MLP_up      Δ=-0.000053
+
+==========================================================================================
+Total time: 3501s (58.4m)

@@ -1,0 +1,22 @@
+{
+  "author": "mrdavtan",
+  "github_id": "mrdavtan",
+  "name": "Non-record: 25 experiments documented (val_bpb=1.1329, 3 seeds)",
+  "blurb": "11L transformer with 25 documented experiments including negative findings on codebook quantization, magnitude pruning, multi-token prediction, and embedding factorization.",
+  "date": "2026-03-22",
+  "val_loss": 1.9121,
+  "val_bpb": 1.1324,
+  "mean_val_bpb": 1.1329,
+  "std_val_bpb": 0.0006,
+  "seed": 7,
+  "num_seeds": 3,
+  "seed_results": {"1337": 1.1335, "42": 1.1328, "7": 1.1324},
+  "step_stop": 8730,
+  "wallclock_seconds": 600.0,
+  "bytes_total": 15289864,
+  "bytes_model_int8_zstd": 15201310,
+  "bytes_code": 88554,
+  "hardware": "8xH100 SXM (RunPod), PyTorch 2.9.1+cu128",
+  "track": "track_10min_16mb",
+  "non_record": true
+}

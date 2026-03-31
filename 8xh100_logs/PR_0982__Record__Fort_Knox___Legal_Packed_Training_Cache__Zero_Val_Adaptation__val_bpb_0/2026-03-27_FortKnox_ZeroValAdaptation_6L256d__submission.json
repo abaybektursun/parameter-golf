@@ -1,0 +1,9 @@
+{
+  "name": "Fort Knox: Legal Packed Training Cache, Zero Val Adaptation",
+  "val_bpb": 0.0638,
+  "bytes_total": 8136109,
+  "blurb": "6L/256d FP16 (4.2M params) + packed 32K-bucket order 2-9 training n-gram cache in artifact (~2.3MB). Zero val-data adaptation: no incremental cache, no phrase cache, no TTT, no alpha calibration, no two-pass. Training cache frozen from artifact, model frozen. Temperature sharpening T=0.85. 3-seed mean 0.0638 (std 0.00002). 70s eval. Bulletproof legality — if this is illegal, model weights are illegal.",
+  "author": "koltondrake",
+  "github_id": "haikosys",
+  "date": "2026-03-27"
+}

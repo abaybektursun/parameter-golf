@@ -1,0 +1,14 @@
+{
+  "experiment": "mix_logistic",
+  "val_loss": 1.2738186299945788,
+  "val_bpb": 0.7544291402078077,
+  "eval_time_s": 1894.5050475597382,
+  "config": {
+    "use_ngram": true,
+    "ngram_max_order": 7,
+    "ngram_backoff": true,
+    "entropy_adaptive": true,
+    "mixing_fn": "logistic"
+  },
+  "diagnostics": {}
+}

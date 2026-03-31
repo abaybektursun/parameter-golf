@@ -1,0 +1,14 @@
+{
+  "experiment": "backoff_7",
+  "val_loss": 0.845099412826322,
+  "val_bpb": 0.5005154744254975,
+  "eval_time_s": 169.53930497169495,
+  "config": {
+    "use_ngram": true,
+    "ngram_max_order": 7,
+    "ngram_backoff": true,
+    "ngram_alpha": 0.4,
+    "entropy_adaptive": false
+  },
+  "diagnostics": {}
+}

@@ -1,0 +1,12 @@
+/root/parameter-golf/train_gpt_mlp35_mixed.py:663: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:206.)
+  return torch.from_numpy(_get_shard_memmap(file))
+Evaluating baseline (full precision bfloat16)...
+Baseline BPB: 1.150966  (41.1s)
+  L 0 Q           int5 d=+0.000014  int6 d=+0.000011  upgrade=+0.000003
+  L 0 K           int5 d=+0.000003  int6 d=-0.000008  upgrade=+0.000011
+  L 0 V           int5 d=-0.000003  int6 d=-0.000032  upgrade=+0.000029
+  L 0 Out         int5 d=+0.000035  int6 d=+0.000010  upgrade=+0.000025
+  L 0 MLP_up      int5 d=+0.000076  int6 d=-0.000002  upgrade=+0.000078
+  L 0 MLP_down    int5 d=+0.000353  int6 d=+0.000115  upgrade=+0.000238
+  L 1 Q           int5 d=+0.000018  int6 d=-0.000013  upgrade=+0.000031
+  L 1 K           int5 d=+0.000012  int6 d=-0.000005  upgrade=+0.000017

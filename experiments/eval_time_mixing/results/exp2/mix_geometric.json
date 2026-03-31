@@ -1,0 +1,14 @@
+{
+  "experiment": "mix_geometric",
+  "val_loss": 1.7757940389828923,
+  "val_bpb": 1.051728039196377,
+  "eval_time_s": 1151.032166481018,
+  "config": {
+    "use_ngram": true,
+    "ngram_max_order": 7,
+    "ngram_backoff": true,
+    "entropy_adaptive": true,
+    "mixing_fn": "geometric"
+  },
+  "diagnostics": {}
+}

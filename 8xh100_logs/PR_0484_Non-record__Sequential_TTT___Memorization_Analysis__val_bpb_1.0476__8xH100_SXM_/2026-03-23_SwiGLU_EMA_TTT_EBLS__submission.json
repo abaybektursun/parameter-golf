@@ -1,0 +1,11 @@
+{
+  "author": "Robby Sneiderman",
+  "github_id": "Robby955",
+  "name": "SwiGLU + EMA + Sequential TTT + Memorization Analysis (Non-Record)",
+  "blurb": "SwiGLU MLP, EMA, int5 quantization, sequential score-then-train TTT (3 epochs). Reports sliding-window BPB on TTT-adapted weights (1.0476) rather than TTT-loop BPB (1.1032) based on memorization analysis showing multi-epoch TTT overfits at higher epoch counts. Includes EBLS gamma convergence findings.",
+  "date": "2026-03-23T00:00:00Z",
+  "val_loss": 1.7689,
+  "val_bpb": 1.0476,
+  "bytes_total": 15184183,
+  "bytes_code": 53058
+}

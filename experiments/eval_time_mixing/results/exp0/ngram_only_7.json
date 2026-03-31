@@ -1,0 +1,13 @@
+{
+  "experiment": "ngram_only_7",
+  "val_loss": 1.7922318515844764,
+  "val_bpb": 1.0614634634835558,
+  "eval_time_s": 535.2206938266754,
+  "config": {
+    "use_ngram": true,
+    "ngram_max_order": 7,
+    "ngram_backoff": true,
+    "ngram_only": true
+  },
+  "diagnostics": {}
+}

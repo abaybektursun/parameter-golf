@@ -1,0 +1,10 @@
+{
+  "experiment": "baseline",
+  "val_loss": 1.8756500355253027,
+  "val_bpb": 1.110868541495676,
+  "eval_time_s": 606.3143367767334,
+  "config": {
+    "use_ngram": false
+  },
+  "diagnostics": {}
+}

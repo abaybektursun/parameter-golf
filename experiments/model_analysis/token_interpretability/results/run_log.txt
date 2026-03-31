@@ -1,0 +1,16 @@
+Phase 1: Forward pass on 8 x 2048 tokens...
+  Done in 1.6s
+  Loss threshold (P90): 5.1659 nats
+  Mean: 2.0626, Median: 1.3970
+
+Phase 2: Generating 200 tokens from 50-token prompts...
+  50/200 tokens generated
+  100/200 tokens generated
+  150/200 tokens generated
+  200/200 tokens generated
+  Done in 4.9s
+
+Phase 3: Writing JSON...
+
+Wrote /workspace/analysis/results/token_interpretability.json (1003 KB)
+Total time: 6.8s

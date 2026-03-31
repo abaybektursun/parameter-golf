@@ -1,0 +1,24 @@
+/root/parameter-golf/train_gpt_mlp35_mixed.py:663: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:206.)
+  return torch.from_numpy(_get_shard_memmap(file))
+Resuming from layer 8 (baseline BPB: 1.150966)
+  L 8 Q           int5 d=+0.000029  int6 d=-0.000000  upgrade=+0.000029
+  L 8 K           int5 d=+0.000036  int6 d=+0.000013  upgrade=+0.000023
+  L 8 V           int5 d=-0.000000  int6 d=+0.000010  upgrade=-0.000010
+  L 8 Out         int5 d=+0.000077  int6 d=+0.000009  upgrade=+0.000068
+  L 8 MLP_up      int5 d=+0.000306  int6 d=+0.000071  upgrade=+0.000236
+  L 8 MLP_down    int5 d=+0.000711  int6 d=+0.000079  upgrade=+0.000631
+  L 9 Q           int5 d=+0.000024  int6 d=+0.000010  upgrade=+0.000014
+  L 9 K           int5 d=+0.000072  int6 d=+0.000005  upgrade=+0.000067
+  L 9 V           int5 d=+0.000148  int6 d=-0.000008  upgrade=+0.000156
+  L 9 Out         int5 d=+0.000111  int6 d=+0.000034  upgrade=+0.000077
+  L 9 MLP_up      int5 d=+0.000353  int6 d=+0.000084  upgrade=+0.000269
+  L 9 MLP_down    int5 d=+0.001436  int6 d=+0.000269  upgrade=+0.001167
+  L10 Q           int5 d=+0.000038  int6 d=+0.000005  upgrade=+0.000033
+  L10 K           int5 d=+0.000012  int6 d=+0.000029  upgrade=-0.000017
+  L10 V           int5 d=+0.000195  int6 d=+0.000058  upgrade=+0.000137
+  L10 Out         int5 d=+0.000054  int6 d=+0.000005  upgrade=+0.000049
+  L10 MLP_up      int5 d=+0.000203  int6 d=-0.000054  upgrade=+0.000257
+  L10 MLP_down    int5 d=+0.001266  int6 d=+0.000200  upgrade=+0.001066
+
+Layers 8-10 done in 1445s (24.1m)
+Saved results/mixed_quant_L8_L10.json (18 matrices)

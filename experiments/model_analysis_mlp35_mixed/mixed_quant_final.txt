@@ -1,0 +1,73 @@
+Parsed L0-L7: 9 matrices
+Total: 27 matrices (expect 66)
+
+Bank params: 11,010,048
+Non-bank params: 18,941,020
+All-int5 artifact: 20.14 MB
+Budget: 16.00 MB
+Headroom for upgrades: -4.14 MB
+
+Optimal allocation: 0/27 matrices at int6, rest at int5
+Estimated artifact: 20.14 MB
+All-int5 BPB (isolated sum): 1.156554
+Mixed BPB (estimated): 1.156554
+Upgrade benefit: 0.000000 BPB
+
+====================================================================================================
+MIXED-PRECISION QUANTIZATION ANALYSIS — FINAL REPORT
+====================================================================================================
+
+Baseline BPB (bf16): 1.150966
+
+Layer   Type          Params      int5 d      int6 d     Upgrade Alloc
+----------------------------------------------------------------------
+L0       Q             262,144    +0.000014    +0.000011    +0.000003   int5
+L0       K             131,072    +0.000003    -0.000008    +0.000011   int5
+L0       V             131,072    -0.000003    -0.000032    +0.000029   int5
+L0       Out           262,144    +0.000035    +0.000010    +0.000025   int5
+L0       MLP_up        917,504    +0.000076    -0.000002    +0.000078   int5
+L0       MLP_down      917,504    +0.000353    +0.000115    +0.000238   int5
+L1       Q             262,144    +0.000018    -0.000013    +0.000031   int5
+L1       K             131,072    +0.000012    -0.000005    +0.000017   int5
+L1       V             131,072    +0.000008    +0.000021    -0.000014   int5
+L8       Q             262,144    +0.000029    -0.000000    +0.000029   int5
+L8       K             131,072    +0.000036    +0.000013    +0.000023   int5
+L8       V             131,072    -0.000000    +0.000010    -0.000010   int5
+L8       Out           262,144    +0.000077    +0.000009    +0.000068   int5
+L8       MLP_up        917,504    +0.000306    +0.000071    +0.000236   int5
+L8       MLP_down      917,504    +0.000711    +0.000079    +0.000631   int5
+L9       Q             262,144    +0.000024    +0.000010    +0.000014   int5
+L9       K             131,072    +0.000072    +0.000005    +0.000067   int5
+L9       V             131,072    +0.000148    -0.000008    +0.000156   int5
+L9       Out           262,144    +0.000111    +0.000034    +0.000077   int5
+L9       MLP_up        917,504    +0.000353    +0.000084    +0.000269   int5
+L9       MLP_down      917,504    +0.001436    +0.000269    +0.001167   int5
+L10      Q             262,144    +0.000038    +0.000005    +0.000033   int5
+L10      K             131,072    +0.000012    +0.000029    -0.000017   int5
+L10      V             131,072    +0.000195    +0.000058    +0.000137   int5
+L10      Out           262,144    +0.000054    +0.000005    +0.000049   int5
+L10      MLP_up        917,504    +0.000203    -0.000054    +0.000257   int5
+L10      MLP_down      917,504    +0.001266    +0.000200    +0.001066   int5
+
+Top 10 most valuable upgrades (int5 -> int6):
+  L9_MLP_down       upgrade=+0.001167  benefit/Mbit=+0.0013
+  L9_V              upgrade=+0.000156  benefit/Mbit=+0.0012
+  L10_MLP_down      upgrade=+0.001066  benefit/Mbit=+0.0012
+  L10_V             upgrade=+0.000137  benefit/Mbit=+0.0010
+  L8_MLP_down       upgrade=+0.000631  benefit/Mbit=+0.0007
+  L9_K              upgrade=+0.000067  benefit/Mbit=+0.0005
+  L9_Out            upgrade=+0.000077  benefit/Mbit=+0.0003
+  L9_MLP_up         upgrade=+0.000269  benefit/Mbit=+0.0003
+  L10_MLP_up        upgrade=+0.000257  benefit/Mbit=+0.0003
+  L0_MLP_down       upgrade=+0.000238  benefit/Mbit=+0.0003
+
+Type        Sum int5 d  Sum int6 d Sum upgrade
+--------------------------------------------------
+Q             +0.000123    +0.000012    +0.000111
+K             +0.000134    +0.000034    +0.000101
+V             +0.000349    +0.000049    +0.000299
+Out           +0.000278    +0.000059    +0.000219
+MLP_up        +0.000938    +0.000099    +0.000839
+MLP_down      +0.003766    +0.000664    +0.003102
+
+Saved /Users/abaybektursun/projects/parameter-golf/experiments/model_analysis_mlp35_mixed/results_mixed_quant.json

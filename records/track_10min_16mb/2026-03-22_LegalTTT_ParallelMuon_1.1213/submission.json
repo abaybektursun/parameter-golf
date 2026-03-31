@@ -1,0 +1,10 @@
+{
+  "name": "Legal Score-First TTT + Parallel Muon + Parameter Banking (val_bpb=1.1213)",
+  "val_loss": 1.8933,
+  "val_bpb": 1.1213,
+  "bytes_total": 15841722,
+  "blurb": "Legal score-first TTT (PR #461 recipe: SGD+momentum, 3 epochs/chunk, freeze 2 blocks, 32K chunks) on top of #414 stack with Parameter Banking + Parallel Muon. Every token scored BEFORE model adapts on it, enforced by inference_mode. Pre-TTT: 1.1234, post-TTT: 1.1213 (-0.0021). TTT eval: 400s. Built on PR #414 by @signalrush and TTT recipe from PR #461 by @anantdgoel.",
+  "author": "abaybektursun",
+  "github_id": "abaybektursun",
+  "date": "2026-03-22"
+}

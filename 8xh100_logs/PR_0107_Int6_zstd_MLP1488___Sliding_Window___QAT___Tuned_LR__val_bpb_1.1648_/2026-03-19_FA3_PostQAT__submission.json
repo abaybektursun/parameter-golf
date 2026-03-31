@@ -1,0 +1,11 @@
+{
+  "author": "m0at",
+  "github_id": "m0at",
+  "name": "Int6+zstd MLP1488 + Sliding Window + QAT + Tuned LR",
+  "blurb": "Int6 quantization on MLP/Q/V/proj + zstd level 22 fits 21.3M params in 15.93MB. MLP hidden=1488. Sliding window eval stride=64. Post-training QAT. Tuned LRs: matrix=0.02, scalar=0.02, embed=0.03. Train seq_len=2048.",
+  "date": "2026-03-19",
+  "val_loss": 1.96677131,
+  "val_bpb": 1.16483584,
+  "bytes_total": 15925577,
+  "bytes_code": 64176
+}

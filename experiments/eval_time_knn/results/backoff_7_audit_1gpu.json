@@ -1,0 +1,21 @@
+{
+  "experiment": "backoff_7_audit",
+  "val_loss": 0.9154379217535198,
+  "val_bpb": 0.5421745957566981,
+  "eval_time_s": 1376.3977184295654,
+  "config": {
+    "use_ngram": true,
+    "ngram_max_order": 7,
+    "ngram_backoff": true,
+    "ngram_alpha": 0.4,
+    "entropy_adaptive": false,
+    "audit_distribution": true
+  },
+  "diagnostics": {
+    "audit": {
+      "avg_distribution_sum": 276.96161554765007,
+      "positions_audited": 62020312,
+      "avg_normalized_nll": 6.29057657801404
+    }
+  }
+}

@@ -1,0 +1,40 @@
+/root/parameter-golf/train_gpt_mlp35_mixed.py:663: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:206.)
+  return torch.from_numpy(_get_shard_memmap(file))
+Logit lens on 64 sequences of length 2048
+  16/64 done
+  32/64 done
+  48/64 done
+  64/64 done
+
+======================================================================
+LOGIT LENS REPORT
+======================================================================
+
+Layer         Loss (nats)   Bits/tok  Top-1 Acc      Delta
+--------------------------------------------------------
+embed             18.0964    26.1076      0.5%           
+layer_0            8.5470    12.3308      7.6%   -13.7769
+layer_1            7.5601    10.9070     11.1%    -1.4238
+layer_2            6.7588     9.7508     15.8%    -1.1561
+layer_3            7.6073    10.9750     15.8%    +1.2242
+layer_4            8.2960    11.9686     14.3%    +0.9936
+layer_5            9.8520    14.2134     12.1%    +2.2448
+layer_6            7.4536    10.7533     18.0%    -3.4601
+layer_7            4.8069     6.9349     25.9%    -3.8184
+layer_8            3.2366     4.6694     36.0%    -2.2655
+layer_9            2.2996     3.3177     49.7%    -1.3517
+layer_10           1.9411     2.8004     54.2%    -0.5172
+final              1.9411     2.8004     54.2%    +0.0000
+
+======================================================================
+NOTE: 'Bits/tok' is bits per TOKEN (not per byte). To convert to BPB,
+divide by avg bytes/token (~2.7 for sp1024). Final model BPB ~ 1.13.
+
+INTERPRETATION:
+- Large drop at a layer = that layer contributes significant signal
+- Small drop = layer may be underutilized (candidate for narrowing)
+- Increase at encoder layers 3-4 = these layers optimize features for
+  skip connections to decoder, not for direct prediction via unembedding
+- Increase at decoder layer 5+ = skip connection injection disrupts
+  residual stream alignment with output space
+======================================================================

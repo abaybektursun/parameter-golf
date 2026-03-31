@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #fafafa;
+  --border: #e4e4e7;
+  --muted: #71717a;
+  --accent-blue: #1e40af;
+  --accent-red: #991b1b;
+  --accent-amber: #92400e;
+  --accent-green: #166534;
+  --data: #27272a;
+  --grid: #f4f4f5;
+}
+
+body {
+  background: #ffffff;
+  color: #0a0a0a;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.02em;
+}
+
+/* Observable Plot overrides for light theme */
+figure[class*="plot"] {
+  background: transparent !important;
+}

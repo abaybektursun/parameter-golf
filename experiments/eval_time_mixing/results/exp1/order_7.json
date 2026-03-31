@@ -1,0 +1,47 @@
+{
+  "experiment": "order_7",
+  "val_loss": 1.1050725689345466,
+  "val_bpb": 0.654487953321951,
+  "eval_time_s": 1131.816276550293,
+  "config": {
+    "use_ngram": true,
+    "ngram_max_order": 7,
+    "ngram_backoff": true,
+    "entropy_adaptive": true,
+    "collect_diagnostics": true
+  },
+  "diagnostics": {
+    "per_order_hits": {
+      "2": 241112,
+      "3": 1274797,
+      "4": 1555433,
+      "5": 1739503,
+      "6": 3588616,
+      "7": 53621117
+    },
+    "total_scored": 62023616,
+    "ngram_matched": 62020578,
+    "p_ngram_buckets": {
+      "0.0-0.2": {
+        "count": 6425380,
+        "nll_sum": 15187245.75657845
+      },
+      "0.2-0.5": {
+        "count": 8283127,
+        "nll_sum": 11275658.625356957
+      },
+      "0.5-0.8": {
+        "count": 13536250,
+        "nll_sum": 14113603.521835934
+      },
+      "0.8-0.95": {
+        "count": 5381810,
+        "nll_sum": 4573648.288605898
+      },
+      "0.95-1.0": {
+        "count": 28394011,
+        "nll_sum": 23384287.65089692
+      }
+    }
+  }
+}
