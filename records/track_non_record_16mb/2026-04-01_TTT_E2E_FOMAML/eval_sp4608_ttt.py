@@ -96,8 +96,10 @@ class RMSNorm(nn.Module):
         return F.rms_norm(x, (x.size(-1),))
 
 class Rotary(nn.Module):
-    def __init__(self, dim, base=10000.0, rope_dims=0):
+    def __init__(self, dim, base=10000.0, train_seq_len=1024, rope_dims=0):
         super().__init__()
+        self.base = base
+        self.train_seq_len = train_seq_len
         self.rope_dims = rope_dims if rope_dims > 0 else dim
         inv_freq = 1.0 / (base ** (torch.arange(0, self.rope_dims, 2).float() / self.rope_dims))
         self.register_buffer("inv_freq", inv_freq, persistent=False)
@@ -105,8 +107,15 @@ class Rotary(nn.Module):
 
     def forward(self, seq_len, device, dtype):
         if self._cache is None or self._cache[0] != seq_len or self._cache[1].device != device:
-            t = torch.arange(seq_len, device=device, dtype=self.inv_freq.dtype)
-            freqs = torch.outer(t, self.inv_freq.to(device))
+            rd = self.rope_dims
+            if seq_len > self.train_seq_len:
+                scale = seq_len / self.train_seq_len
+                new_base = self.base * (scale ** (rd / (rd - 2)))
+                inv_freq = 1.0 / (new_base ** (torch.arange(0, rd, 2, dtype=torch.float32, device=device) / rd))
+            else:
+                inv_freq = self.inv_freq.to(device)
+            t = torch.arange(seq_len, device=device, dtype=inv_freq.dtype)
+            freqs = torch.outer(t, inv_freq)
             self._cache = (seq_len, freqs.cos()[None, :, None, :], freqs.sin()[None, :, None, :])
         return self._cache[1].to(dtype), self._cache[2].to(dtype)
 
@@ -223,7 +232,7 @@ class GPT_SP4608(nn.Module):
         head_dim = dim // NUM_HEADS
         for block in self.blocks:
             block.attn.rope_dims = ROPE_DIMS
-            block.attn.rotary = Rotary(head_dim, base=ROPE_BASE, rope_dims=ROPE_DIMS)
+            block.attn.rotary = Rotary(head_dim, base=ROPE_BASE, train_seq_len=1024, rope_dims=ROPE_DIMS)
         for i in range(max(0, n - XSA_LAST_N), n):
             self.blocks[i].attn.use_xsa = True
 
