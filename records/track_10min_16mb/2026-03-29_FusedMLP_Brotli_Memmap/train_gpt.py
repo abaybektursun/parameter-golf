@@ -1749,14 +1749,15 @@ def run_fused_ngram_eval(
 ) -> dict[str, float]:
     eval_script = _THIS_DIR / "eval_fused.py"
     code_path = _THIS_DIR / "train_gpt.py"
+    ngpus = torch.cuda.device_count()
     cmd = [
-        sys.executable,
+        sys.executable, "-m", "torch.distributed.run",
+        "--standalone", "--nproc_per_node", str(ngpus),
         str(eval_script),
         "--code", str(code_path),
         "--model", str(model_path),
         "--val-pattern", args.val_files,
         "--tokenizer", args.tokenizer_path,
-        "--device", args.fused_ngram_device,
         "--stride", str(stride),
         "--seq-len", str(eval_seq_len),
         "--batch-seqs", str(args.fused_ngram_batch_seqs),
