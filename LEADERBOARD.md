@@ -21,7 +21,7 @@ Validity assessed against [PR #1017 "A Field Guide to Valid Submissions"](https:
 | 1 | [#1333](https://github.com/openai/parameter-golf/pull/1333) | 1.0766 | aryanbhosale | SP4096 + Depth Recurrence + Causal SLOT-16 | NEEDS REVIEW | SLOT usage requires scrutiny |
 | 2 | [#1423](https://github.com/openai/parameter-golf/pull/1423) | 1.0791 | aryanbhosale | SP8192 + Pre-Quant TTT + QK-Gain 5.0 + Depth Recurrence | INVALID | Pre-quant TTT trains on val data 6 epochs. Rules 1,3,4 violated. Author notified. |
 | 3 | [#1416](https://github.com/openai/parameter-golf/pull/1416) | 1.0795 | erichroepke | SP8192 + Pre-Quant TTT | INVALID | Same pre-quant TTT violation. Author acknowledged and withdrew. |
-| 4 | [#1408](https://github.com/openai/parameter-golf/pull/1408) | 1.0800 | aamodbhatt | dTTT + BigramHash 3072x112 | VALID | dTTT baked into artifact pre-quant. Frozen model eval. Clean. |
+| 4 | [#1408](https://github.com/openai/parameter-golf/pull/1408) | 1.0800 | aamodbhatt | dTTT + BigramHash 3072x112 | INVALID | Pre-quant dTTT trains 10 epochs on val data before quantization. Same violation as #1423/#1416. Rules 1,3,4 violated. |
 | 5 | [#1420](https://github.com/openai/parameter-golf/pull/1420) | 1.0801 | abaybektursun | Triple Loop + Fused Kernels + Parallel Residuals + N-gram Tilt | VALID (FIXED) | within_hint/word_hint causal bug fixed in 5e2eff8. |
 | 6 | [#1437](https://github.com/openai/parameter-golf/pull/1437) | 1.0809 | dexhunter | SP8192 + Parallel Residuals + 3-Layer Recurrence + N-gram Tilt | NEEDS FIX | Same within_hint/word_hint causal bug as #1420. Shared C++ code. |
 | 7 | [#1289](https://github.com/openai/parameter-golf/pull/1289) | 1.0819 | MatoTeziTanka | PROTEUS v1.6 — Scylla + Parallel Residuals | NEEDS REVIEW | |
@@ -93,7 +93,7 @@ Validity assessed against [PR #1017 "A Field Guide to Valid Submissions"](https:
 
 | PR | BPB | Author | Technique | Key Finding |
 |----|-----|--------|-----------|-------------|
-| [#1408](https://github.com/openai/parameter-golf/pull/1408) | 1.0800 | aamodbhatt | dTTT + BigramHash 3072x112 | dTTT pre-quant only, baked into artifact. Frozen eval. |
+| [#1408](https://github.com/openai/parameter-golf/pull/1408) | ~~1.0800~~ | aamodbhatt | dTTT + BigramHash 3072x112 | **MOVED TO INVALID** — pre-quant dTTT trains 10 epochs on val data. |
 | [#1420](https://github.com/openai/parameter-golf/pull/1420) | 1.0801 | abaybektursun | Triple Loop + Fused Kernels + N-gram Tilt | Fixed in 5e2eff8. token_hint clean, within/word_hint fixed. |
 | [#1413](https://github.com/openai/parameter-golf/pull/1413) | 1.0828 | dexhunter | SP8192 + QK-Gain 5 + Score-First TTT | Chunks scored under no_grad() before training. |
 | [#1415](https://github.com/openai/parameter-golf/pull/1415) | 1.0913 | bigbag | SP4096 + 3-Layer Recurrence + ETLB | ETLB bias trained on context tokens only. |
@@ -107,12 +107,13 @@ Validity assessed against [PR #1017 "A Field Guide to Valid Submissions"](https:
 | [#1430](https://github.com/openai/parameter-golf/pull/1430) | 0.3964 | renqianluo | Rule 2: N-gram mixer not normalized over full vocab. Explains impossible 0.40 BPB. |
 | [#1423](https://github.com/openai/parameter-golf/pull/1423) | 1.0791 | aryanbhosale | Rules 1,3,4: Pre-quant TTT trains on val data 6 epochs before scoring same data. |
 | [#1416](https://github.com/openai/parameter-golf/pull/1416) | 1.0795 | erichroepke | Rules 1,3: Same pre-quant TTT pattern. Author acknowledged and withdrew. |
+| [#1408](https://github.com/openai/parameter-golf/pull/1408) | 1.0800 | aamodbhatt | Rules 1,3,4: Pre-quant dTTT trains 10 epochs on val data. Artifact encodes val token info. |
 
 ---
 
 ## Key Observations
 
-1. **Best verified-valid score: 1.0800 BPB** (PR #1408, aamodbhatt)
+1. **Best verified-valid score: 1.0801 BPB** (PR #1420, abaybektursun — after causal fix)
 2. **Sub-0.70 BPB submissions are almost certainly invalid** — the theoretical entropy floor for web text is ~0.70 BPB
 3. **Pre-quantization TTT** (training on val data before quantizing into artifact) is the most common serious violation
 4. **SLOT** (Score-Optimized Last-layer Tuning) is a gray area — small SLOT windows are generally accepted, but large windows (SLOT-32+) produce suspiciously low scores
