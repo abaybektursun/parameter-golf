@@ -397,9 +397,16 @@ public:
         for (int i = 0; i < n; i++) {
             int64_t p = pos[i];
             auto tok = uint16_t(tokens_[p]);
-            bool is_bnd = is_bnd_ && is_bnd_[tok];
-            bool is_ws = has_ls_ && has_ls_[tok];
             int max_avail = std::min(OPEN_MAX, int(p));
+
+            // Derive boundary/whitespace flags from the PREVIOUS token
+            // (last prefix token) instead of tokens_[p] (the target being
+            // predicted).  Using the target would violate strict causal
+            // dependence (Rule 1, PR #1017): the hint distribution at
+            // position p must not depend on x_p itself.
+            auto prev_tok = (p > 0) ? uint16_t(tokens_[p - 1]) : uint16_t(0);
+            bool is_bnd = is_bnd_ && is_bnd_[prev_tok];
+            bool is_ws  = has_ls_ && has_ls_[prev_tok];
 
             if (i + 1 < n) {
                 int64_t np = pos[i + 1];
@@ -438,9 +445,15 @@ public:
 
             prefetch_open_updates(hashes, max_avail, tok);
 
+            // Updates use the actual target token (tok) — this is correct
+            // because updates happen AFTER scoring (score-before-update).
+            // The update flags use the target's own properties to correctly
+            // track word boundaries and within-word state.
+            bool tok_is_bnd = is_bnd_ && is_bnd_[tok];
+            bool tok_is_ws  = has_ls_ && has_ls_[tok];
             token_update(hashes, max_avail, tok);
-            within_update(tok, is_bnd, is_ws);
-            word_update(tok, is_bnd, is_ws);
+            within_update(tok, tok_is_bnd, tok_is_ws);
+            word_update(tok, tok_is_bnd, tok_is_ws);
 
             std::memcpy(hashes, next_hashes, sizeof(hashes));
         }
